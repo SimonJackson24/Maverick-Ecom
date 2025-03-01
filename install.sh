@@ -36,23 +36,28 @@ setup_nodejs() {
         tar -xf node-v18.18.0-linux-x64.tar.xz
         cp -r node-v18.18.0-linux-x64/* "$HOME/.local/node-v18/"
         cd - > /dev/null
-        export PATH="$HOME/.local/node-v18/bin:$PATH"
     fi
 
-    # Configure npm to use local directories
-    mkdir -p "$HOME/.npm-global"
-    npm config set prefix "$HOME/.npm-global"
-    export PATH="$HOME/.npm-global/bin:$PATH"
+    # Add node to PATH
+    export PATH="$HOME/.local/node-v18/bin:$PATH"
+    
+    # Create symlinks for node and npm in ~/.local/bin
+    mkdir -p "$HOME/.local/bin"
+    ln -sf "$HOME/.local/node-v18/bin/node" "$HOME/.local/bin/node"
+    ln -sf "$HOME/.local/node-v18/bin/npm" "$HOME/.local/bin/npm"
+    export PATH="$HOME/.local/bin:$PATH"
 
-    # Add paths to .profile if they don't exist
-    if [ -f "$HOME/.profile" ]; then
-        if ! grep -q "PATH.*node-v18" "$HOME/.profile"; then
-            echo 'export PATH="$HOME/.local/node-v18/bin:$PATH"' >> "$HOME/.profile"
+    # Add paths to .profile and .bashrc
+    for rcfile in "$HOME/.profile" "$HOME/.bashrc"; do
+        if [ -f "$rcfile" ]; then
+            if ! grep -q "PATH.*local/bin" "$rcfile"; then
+                echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$rcfile"
+            fi
+            if ! grep -q "PATH.*node-v18" "$rcfile"; then
+                echo 'export PATH="$HOME/.local/node-v18/bin:$PATH"' >> "$rcfile"
+            fi
         fi
-        if ! grep -q "PATH.*npm-global" "$HOME/.profile"; then
-            echo 'export PATH="$HOME/.npm-global/bin:$PATH"' >> "$HOME/.profile"
-        fi
-    fi
+    done
 
     # Verify Node.js installation
     if ! command_exists node; then
@@ -60,7 +65,13 @@ setup_nodejs() {
         exit 1
     fi
 
+    # Configure npm
+    mkdir -p "$HOME/.npm"
+    npm config set prefix "$HOME/.local"
+    npm config set cache "$HOME/.npm"
+    
     echo -e "${GREEN}Node.js $(node -v) has been set up successfully${NC}"
+    echo -e "${GREEN}npm $(npm -v) has been set up successfully${NC}"
 }
 
 # Function to detect Hestia database credentials
@@ -148,20 +159,34 @@ setup_environment() {
 install_dependencies() {
     echo "Installing dependencies..."
     
+    # Ensure PATH is set
+    export PATH="$HOME/.local/bin:$PATH"
+    export PATH="$HOME/.local/node-v18/bin:$PATH"
+    
     # Install project dependencies including PM2 locally
     echo "Installing project dependencies..."
-    npm install --no-optional
-    npm install pm2 typescript ts-node --save-dev
+    npm install --no-optional --prefix "$PWD"
+    npm install pm2 typescript ts-node --save-dev --prefix "$PWD"
     
     # Create PM2 startup script
     echo "Creating PM2 startup script..."
     cat > start.sh << 'EOL'
 #!/bin/bash
+export PATH="$HOME/.local/bin:$PATH"
 export PATH="$HOME/.local/node-v18/bin:$PATH"
-export PATH="$HOME/.npm-global/bin:$PATH"
-./node_modules/.bin/pm2 start ecosystem.config.js --env production
+NODE_ENV=production ./node_modules/.bin/pm2 start ecosystem.config.js --env production
 EOL
     chmod +x start.sh
+    
+    # Create convenience scripts
+    echo "Creating convenience scripts..."
+    cat > pm2.sh << 'EOL'
+#!/bin/bash
+export PATH="$HOME/.local/bin:$PATH"
+export PATH="$HOME/.local/node-v18/bin:$PATH"
+./node_modules/.bin/pm2 "$@"
+EOL
+    chmod +x pm2.sh
 }
 
 # Main installation process
@@ -183,18 +208,19 @@ echo -e "${BLUE}Next steps:${NC}"
 echo "1. Set up your domain in Hestia Control Panel"
 echo "2. Configure SSL certificate (if not already done)"
 echo "3. Visit https://your-domain/setup to complete the setup wizard"
-echo "4. Monitor the application using: ./node_modules/.bin/pm2 monit"
+echo "4. Monitor the application using: ./pm2.sh monit"
 
 # Create a helpful alias for quick management
 if [ -f "$HOME/.bashrc" ]; then
     if ! grep -q "alias wickwax=" "$HOME/.bashrc"; then
-        echo "alias wickwax='./node_modules/.bin/pm2 monit wickwax'" >> "$HOME/.bashrc"
+        echo "alias wickwax='./pm2.sh monit'" >> "$HOME/.bashrc"
     fi
 fi
 
 echo -e "\n${GREEN}Installation complete! Your store is ready to go!${NC}"
 echo -e "${BLUE}To manage your application, use:${NC}"
 echo "- Start: ./start.sh"
-echo "- Monitor: ./node_modules/.bin/pm2 monit"
-echo "- Stop: ./node_modules/.bin/pm2 stop all"
-echo "- Logs: ./node_modules/.bin/pm2 logs"
+echo "- Monitor: ./pm2.sh monit"
+echo "- Stop: ./pm2.sh stop all"
+echo "- Logs: ./pm2.sh logs"
+echo "- Status: ./pm2.sh list"
