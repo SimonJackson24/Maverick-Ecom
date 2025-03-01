@@ -11,6 +11,45 @@ command_exists() {
     command -v "$1" >/dev/null 2>&1
 }
 
+# Function to install Node.js
+install_nodejs() {
+    echo "Installing Node.js..."
+    
+    # First, try to install using package manager
+    if command_exists apt-get; then
+        curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+        sudo apt-get install -y nodejs
+    elif command_exists yum; then
+        curl -fsSL https://rpm.nodesource.com/setup_18.x | sudo -E bash -
+        sudo yum install -y nodejs
+    else
+        echo -e "${RED}Could not detect package manager. Installing Node.js manually...${NC}"
+        # Manual installation as fallback
+        cd /tmp
+        wget https://nodejs.org/dist/v18.18.0/node-v18.18.0-linux-x64.tar.xz
+        sudo tar -xf node-v18.18.0-linux-x64.tar.xz -C /usr/local --strip-components=1
+        cd -
+    fi
+
+    # Verify installation
+    if ! command_exists node; then
+        echo -e "${RED}Node.js installation failed. Please install Node.js manually and try again.${NC}"
+        exit 1
+    fi
+
+    # Configure npm prefix to avoid permission issues
+    mkdir -p ~/.npm-global
+    npm config set prefix '~/.npm-global'
+    
+    # Add npm global path to environment
+    if ! grep -q "export PATH=~/.npm-global/bin:\$PATH" ~/.profile; then
+        echo "export PATH=~/.npm-global/bin:\$PATH" >> ~/.profile
+    fi
+    
+    # Source the profile
+    source ~/.profile
+}
+
 # Function to detect Hestia database credentials
 detect_hestia_credentials() {
     echo "Detecting Hestia database credentials..."
@@ -55,14 +94,19 @@ check_requirements() {
     # Check Node.js
     if ! command_exists node; then
         echo -e "${BLUE}Node.js not found. Installing Node.js 18...${NC}"
-        curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
-        sudo apt-get install -y nodejs
+        install_nodejs
     fi
 
     NODE_VERSION=$(node -v | cut -d'v' -f2)
     if (( $(echo "$NODE_VERSION 18.0.0" | awk '{print ($1 < $2)}') )); then
         echo -e "${RED}Node.js version must be 18.0.0 or higher. Current version: $NODE_VERSION${NC}"
-        exit 1
+        install_nodejs
+    fi
+
+    # Ensure npm is in PATH
+    if ! grep -q "export PATH=~/.npm-global/bin:\$PATH" ~/.profile; then
+        echo "export PATH=~/.npm-global/bin:\$PATH" >> ~/.profile
+        source ~/.profile
     fi
 
     # Check PostgreSQL
@@ -118,12 +162,15 @@ setup_environment() {
 install_dependencies() {
     echo "Installing dependencies..."
     
+    # Ensure npm is available in PATH
+    source ~/.profile
+    
     # Install global dependencies first
     echo "Installing global dependencies..."
-    sudo npm install -g pm2 typescript ts-node
+    npm install -g pm2 typescript ts-node --unsafe-perm=true
     
     # Install project dependencies
-    npm install --no-optional
+    npm install --no-optional --unsafe-perm=true
     
     # Setup PM2 with logrotate
     pm2 install pm2-logrotate
