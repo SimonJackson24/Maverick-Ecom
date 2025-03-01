@@ -14,64 +14,66 @@ command_exists() {
 # Function to setup Node.js environment
 setup_nodejs() {
     echo "Setting up Node.js environment..."
+    NODE_VERSION="18.19.1"
     
-    # Check if Node.js is available in standard locations
-    if [ -d "/opt/node-v18" ]; then
-        echo "Found Node.js in /opt/node-v18"
-        export PATH="/opt/node-v18/bin:$PATH"
-    elif [ -d "$HOME/.local/node-v18" ]; then
-        echo "Found Node.js in ~/.local/node-v18"
-        export PATH="$HOME/.local/node-v18/bin:$PATH"
-    elif [ -d "/opt/cpanel/ea-nodejs18" ]; then
-        echo "Found Node.js in cPanel location"
-        export PATH="/opt/cpanel/ea-nodejs18/bin:$PATH"
-    fi
-
-    # If Node.js still not found, try to install locally
+    # Create local directories
+    mkdir -p "$HOME/.local/node"
+    mkdir -p "$HOME/.local/bin"
+    mkdir -p "$HOME/.npm"
+    
+    # Download and install Node.js if not found
     if ! command_exists node; then
         echo "Installing Node.js locally..."
-        mkdir -p "$HOME/.local/node-v18"
         cd /tmp
-        wget https://nodejs.org/dist/v18.18.0/node-v18.18.0-linux-x64.tar.xz
-        tar -xf node-v18.18.0-linux-x64.tar.xz
-        cp -r node-v18.18.0-linux-x64/* "$HOME/.local/node-v18/"
+        wget "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.xz"
+        tar -xf "node-v${NODE_VERSION}-linux-x64.tar.xz"
+        cp -r "node-v${NODE_VERSION}-linux-x64"/* "$HOME/.local/node/"
+        rm -rf "node-v${NODE_VERSION}-linux-x64"*
         cd - > /dev/null
     fi
 
-    # Add node to PATH
-    export PATH="$HOME/.local/node-v18/bin:$PATH"
+    # Set up environment variables
+    export PATH="$HOME/.local/node/bin:$HOME/.local/bin:$PATH"
+    export NPM_CONFIG_PREFIX="$HOME/.local"
+    export NPM_CONFIG_CACHE="$HOME/.npm"
     
-    # Create symlinks for node and npm in ~/.local/bin
-    mkdir -p "$HOME/.local/bin"
-    ln -sf "$HOME/.local/node-v18/bin/node" "$HOME/.local/bin/node"
-    ln -sf "$HOME/.local/node-v18/bin/npm" "$HOME/.local/bin/npm"
-    export PATH="$HOME/.local/bin:$PATH"
-
-    # Add paths to .profile and .bashrc
+    # Create symlinks
+    ln -sf "$HOME/.local/node/bin/node" "$HOME/.local/bin/node"
+    ln -sf "$HOME/.local/node/bin/npm" "$HOME/.local/bin/npm"
+    ln -sf "$HOME/.local/node/bin/npx" "$HOME/.local/bin/npx"
+    
+    # Add environment variables to shell config files
     for rcfile in "$HOME/.profile" "$HOME/.bashrc"; do
         if [ -f "$rcfile" ]; then
-            if ! grep -q "PATH.*local/bin" "$rcfile"; then
-                echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$rcfile"
-            fi
-            if ! grep -q "PATH.*node-v18" "$rcfile"; then
-                echo 'export PATH="$HOME/.local/node-v18/bin:$PATH"' >> "$rcfile"
-            fi
+            {
+                echo 'export PATH="$HOME/.local/node/bin:$HOME/.local/bin:$PATH"'
+                echo 'export NPM_CONFIG_PREFIX="$HOME/.local"'
+                echo 'export NPM_CONFIG_CACHE="$HOME/.npm"'
+            } >> "$rcfile"
         fi
     done
 
-    # Verify Node.js installation
-    if ! command_exists node; then
-        echo -e "${RED}Node.js setup failed. Please contact your hosting provider for assistance.${NC}"
+    # Source the profile to get npm working in current session
+    if [ -f "$HOME/.profile" ]; then
+        source "$HOME/.profile"
+    fi
+    
+    # Verify installation
+    if command_exists node; then
+        NODE_CURRENT_VERSION=$(node -v)
+        echo -e "${GREEN}Node.js ${NODE_CURRENT_VERSION} has been set up successfully${NC}"
+    else
+        echo -e "${RED}Node.js installation failed${NC}"
         exit 1
     fi
-
-    # Configure npm
-    mkdir -p "$HOME/.npm"
-    npm config set prefix "$HOME/.local"
-    npm config set cache "$HOME/.npm"
     
-    echo -e "${GREEN}Node.js $(node -v) has been set up successfully${NC}"
-    echo -e "${GREEN}npm $(npm -v) has been set up successfully${NC}"
+    if command_exists npm; then
+        NPM_VERSION=$(npm -v)
+        echo -e "${GREEN}npm ${NPM_VERSION} has been set up successfully${NC}"
+    else
+        echo -e "${RED}npm installation failed${NC}"
+        exit 1
+    fi
 }
 
 # Function to detect Hestia database credentials
@@ -159,21 +161,23 @@ setup_environment() {
 install_dependencies() {
     echo "Installing dependencies..."
     
-    # Ensure PATH is set
-    export PATH="$HOME/.local/bin:$PATH"
-    export PATH="$HOME/.local/node-v18/bin:$PATH"
+    # Ensure environment is set up
+    export PATH="$HOME/.local/node/bin:$HOME/.local/bin:$PATH"
+    export NPM_CONFIG_PREFIX="$HOME/.local"
+    export NPM_CONFIG_CACHE="$HOME/.npm"
     
     # Install project dependencies including PM2 locally
     echo "Installing project dependencies..."
-    npm install --no-optional --prefix "$PWD"
-    npm install pm2 typescript ts-node --save-dev --prefix "$PWD"
+    "$HOME/.local/bin/npm" install --no-optional
+    "$HOME/.local/bin/npm" install pm2 typescript ts-node --save-dev
     
     # Create PM2 startup script
     echo "Creating PM2 startup script..."
     cat > start.sh << 'EOL'
 #!/bin/bash
-export PATH="$HOME/.local/bin:$PATH"
-export PATH="$HOME/.local/node-v18/bin:$PATH"
+export PATH="$HOME/.local/node/bin:$HOME/.local/bin:$PATH"
+export NPM_CONFIG_PREFIX="$HOME/.local"
+export NPM_CONFIG_CACHE="$HOME/.npm"
 NODE_ENV=production ./node_modules/.bin/pm2 start ecosystem.config.js --env production
 EOL
     chmod +x start.sh
@@ -182,8 +186,9 @@ EOL
     echo "Creating convenience scripts..."
     cat > pm2.sh << 'EOL'
 #!/bin/bash
-export PATH="$HOME/.local/bin:$PATH"
-export PATH="$HOME/.local/node-v18/bin:$PATH"
+export PATH="$HOME/.local/node/bin:$HOME/.local/bin:$PATH"
+export NPM_CONFIG_PREFIX="$HOME/.local"
+export NPM_CONFIG_CACHE="$HOME/.npm"
 ./node_modules/.bin/pm2 "$@"
 EOL
     chmod +x pm2.sh
