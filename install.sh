@@ -17,48 +17,42 @@ setup_nodejs() {
     NODE_VERSION="18.19.1"
     
     # Create local directories
-    mkdir -p "$HOME/.local/node"
-    mkdir -p "$HOME/.local/bin"
+    mkdir -p "$HOME/.local"
     mkdir -p "$HOME/.npm"
     
-    # Download and install Node.js if not found
-    if ! command_exists node; then
-        echo "Installing Node.js locally..."
-        cd /tmp
-        wget "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.xz"
-        tar -xf "node-v${NODE_VERSION}-linux-x64.tar.xz"
-        cp -r "node-v${NODE_VERSION}-linux-x64"/* "$HOME/.local/node/"
-        rm -rf "node-v${NODE_VERSION}-linux-x64"*
-        cd - > /dev/null
-    fi
-
+    # Download and extract Node.js
+    echo "Downloading Node.js..."
+    cd /tmp
+    wget "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.gz"
+    
+    echo "Extracting Node.js to $HOME/.local..."
+    tar -xzf "node-v${NODE_VERSION}-linux-x64.tar.gz"
+    cp -rf "node-v${NODE_VERSION}-linux-x64"/* "$HOME/.local/"
+    rm -rf "node-v${NODE_VERSION}-linux-x64"*
+    cd - > /dev/null
+    
     # Set up environment variables
-    export PATH="$HOME/.local/node/bin:$HOME/.local/bin:$PATH"
+    export PATH="$HOME/.local/bin:$PATH"
     export NPM_CONFIG_PREFIX="$HOME/.local"
     export NPM_CONFIG_CACHE="$HOME/.npm"
-    
-    # Create symlinks
-    ln -sf "$HOME/.local/node/bin/node" "$HOME/.local/bin/node"
-    ln -sf "$HOME/.local/node/bin/npm" "$HOME/.local/bin/npm"
-    ln -sf "$HOME/.local/node/bin/npx" "$HOME/.local/bin/npx"
     
     # Add environment variables to shell config files
     for rcfile in "$HOME/.profile" "$HOME/.bashrc"; do
         if [ -f "$rcfile" ]; then
-            {
-                echo 'export PATH="$HOME/.local/node/bin:$HOME/.local/bin:$PATH"'
-                echo 'export NPM_CONFIG_PREFIX="$HOME/.local"'
-                echo 'export NPM_CONFIG_CACHE="$HOME/.npm"'
-            } >> "$rcfile"
+            if ! grep -q "NPM_CONFIG_PREFIX" "$rcfile"; then
+                echo "" >> "$rcfile"
+                echo "# Node.js environment" >> "$rcfile"
+                echo "export PATH=\"\$HOME/.local/bin:\$PATH\"" >> "$rcfile"
+                echo "export NPM_CONFIG_PREFIX=\"\$HOME/.local\"" >> "$rcfile"
+                echo "export NPM_CONFIG_CACHE=\"\$HOME/.npm\"" >> "$rcfile"
+            fi
         fi
     done
-
-    # Source the profile to get npm working in current session
-    if [ -f "$HOME/.profile" ]; then
-        source "$HOME/.profile"
-    fi
     
-    # Verify installation
+    # Source the profile
+    source "$HOME/.profile"
+    
+    # Verify Node.js installation
     if command_exists node; then
         NODE_CURRENT_VERSION=$(node -v)
         echo -e "${GREEN}Node.js ${NODE_CURRENT_VERSION} has been set up successfully${NC}"
@@ -67,9 +61,14 @@ setup_nodejs() {
         exit 1
     fi
     
+    # Verify npm installation
     if command_exists npm; then
         NPM_VERSION=$(npm -v)
         echo -e "${GREEN}npm ${NPM_VERSION} has been set up successfully${NC}"
+        
+        # Configure npm
+        npm config set prefix "$HOME/.local"
+        npm config set cache "$HOME/.npm"
     else
         echo -e "${RED}npm installation failed${NC}"
         exit 1
@@ -162,20 +161,36 @@ install_dependencies() {
     echo "Installing dependencies..."
     
     # Ensure environment is set up
-    export PATH="$HOME/.local/node/bin:$HOME/.local/bin:$PATH"
+    export PATH="$HOME/.local/bin:$PATH"
     export NPM_CONFIG_PREFIX="$HOME/.local"
     export NPM_CONFIG_CACHE="$HOME/.npm"
     
+    # Create package.json if it doesn't exist
+    if [ ! -f "package.json" ]; then
+        echo "Creating package.json..."
+        cat > package.json << 'EOL'
+{
+  "name": "wick-and-wax",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  }
+}
+EOL
+    fi
+    
     # Install project dependencies including PM2 locally
     echo "Installing project dependencies..."
-    "$HOME/.local/bin/npm" install --no-optional
-    "$HOME/.local/bin/npm" install pm2 typescript ts-node --save-dev
+    npm install --no-optional
+    npm install pm2 typescript ts-node --save-dev
     
     # Create PM2 startup script
     echo "Creating PM2 startup script..."
     cat > start.sh << 'EOL'
 #!/bin/bash
-export PATH="$HOME/.local/node/bin:$HOME/.local/bin:$PATH"
+export PATH="$HOME/.local/bin:$PATH"
 export NPM_CONFIG_PREFIX="$HOME/.local"
 export NPM_CONFIG_CACHE="$HOME/.npm"
 NODE_ENV=production ./node_modules/.bin/pm2 start ecosystem.config.js --env production
@@ -186,7 +201,7 @@ EOL
     echo "Creating convenience scripts..."
     cat > pm2.sh << 'EOL'
 #!/bin/bash
-export PATH="$HOME/.local/node/bin:$HOME/.local/bin:$PATH"
+export PATH="$HOME/.local/bin:$PATH"
 export NPM_CONFIG_PREFIX="$HOME/.local"
 export NPM_CONFIG_CACHE="$HOME/.npm"
 ./node_modules/.bin/pm2 "$@"
