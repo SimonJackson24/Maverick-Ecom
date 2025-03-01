@@ -11,43 +11,56 @@ command_exists() {
     command -v "$1" >/dev/null 2>&1
 }
 
-# Function to install Node.js
-install_nodejs() {
-    echo "Installing Node.js..."
+# Function to setup Node.js environment
+setup_nodejs() {
+    echo "Setting up Node.js environment..."
     
-    # First, try to install using package manager
-    if command_exists apt-get; then
-        curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
-        sudo apt-get install -y nodejs
-    elif command_exists yum; then
-        curl -fsSL https://rpm.nodesource.com/setup_18.x | sudo -E bash -
-        sudo yum install -y nodejs
-    else
-        echo -e "${RED}Could not detect package manager. Installing Node.js manually...${NC}"
-        # Manual installation as fallback
-        cd /tmp
-        wget https://nodejs.org/dist/v18.18.0/node-v18.18.0-linux-x64.tar.xz
-        sudo tar -xf node-v18.18.0-linux-x64.tar.xz -C /usr/local --strip-components=1
-        cd -
+    # Check if Node.js is available in standard locations
+    if [ -d "/opt/node-v18" ]; then
+        echo "Found Node.js in /opt/node-v18"
+        export PATH="/opt/node-v18/bin:$PATH"
+    elif [ -d "$HOME/.local/node-v18" ]; then
+        echo "Found Node.js in ~/.local/node-v18"
+        export PATH="$HOME/.local/node-v18/bin:$PATH"
+    elif [ -d "/opt/cpanel/ea-nodejs18" ]; then
+        echo "Found Node.js in cPanel location"
+        export PATH="/opt/cpanel/ea-nodejs18/bin:$PATH"
     fi
 
-    # Verify installation
+    # If Node.js still not found, try to install locally
     if ! command_exists node; then
-        echo -e "${RED}Node.js installation failed. Please install Node.js manually and try again.${NC}"
+        echo "Installing Node.js locally..."
+        mkdir -p "$HOME/.local/node-v18"
+        cd /tmp
+        wget https://nodejs.org/dist/v18.18.0/node-v18.18.0-linux-x64.tar.xz
+        tar -xf node-v18.18.0-linux-x64.tar.xz
+        cp -r node-v18.18.0-linux-x64/* "$HOME/.local/node-v18/"
+        cd - > /dev/null
+        export PATH="$HOME/.local/node-v18/bin:$PATH"
+    fi
+
+    # Configure npm to use local directories
+    mkdir -p "$HOME/.npm-global"
+    npm config set prefix "$HOME/.npm-global"
+    export PATH="$HOME/.npm-global/bin:$PATH"
+
+    # Add paths to .profile if they don't exist
+    if [ -f "$HOME/.profile" ]; then
+        if ! grep -q "PATH.*node-v18" "$HOME/.profile"; then
+            echo 'export PATH="$HOME/.local/node-v18/bin:$PATH"' >> "$HOME/.profile"
+        fi
+        if ! grep -q "PATH.*npm-global" "$HOME/.profile"; then
+            echo 'export PATH="$HOME/.npm-global/bin:$PATH"' >> "$HOME/.profile"
+        fi
+    fi
+
+    # Verify Node.js installation
+    if ! command_exists node; then
+        echo -e "${RED}Node.js setup failed. Please contact your hosting provider for assistance.${NC}"
         exit 1
     fi
 
-    # Configure npm prefix to avoid permission issues
-    mkdir -p ~/.npm-global
-    npm config set prefix '~/.npm-global'
-    
-    # Add npm global path to environment
-    if ! grep -q "export PATH=~/.npm-global/bin:\$PATH" ~/.profile; then
-        echo "export PATH=~/.npm-global/bin:\$PATH" >> ~/.profile
-    fi
-    
-    # Source the profile
-    source ~/.profile
+    echo -e "${GREEN}Node.js $(node -v) has been set up successfully${NC}"
 }
 
 # Function to detect Hestia database credentials
@@ -55,25 +68,17 @@ detect_hestia_credentials() {
     echo "Detecting Hestia database credentials..."
     
     # Try to find the database configuration file
-    HESTIA_CONF_DIR="/home/admin/conf/web"
-    if [ -d "$HESTIA_CONF_DIR" ]; then
-        # Get the domain name from current directory
-        DOMAIN=$(pwd | grep -o '[^/]*.co.uk\|[^/]*.com\|[^/]*.net\|[^/]*.org' || echo "")
-        if [ -n "$DOMAIN" ]; then
-            echo "Detected domain: $DOMAIN"
-            DB_CONF_FILE="$HESTIA_CONF_DIR/$DOMAIN/pgsql.conf"
-            if [ -f "$DB_CONF_FILE" ]; then
-                DB_USER=$(grep "DB_USER" "$DB_CONF_FILE" | cut -d"'" -f2)
-                DB_PASSWORD=$(grep "DB_PASSWORD" "$DB_CONF_FILE" | cut -d"'" -f2)
-                DB_NAME=$(grep "DB_NAME" "$DB_CONF_FILE" | cut -d"'" -f2)
-                
-                if [ -n "$DB_USER" ] && [ -n "$DB_PASSWORD" ] && [ -n "$DB_NAME" ]; then
-                    echo -e "${GREEN}Found database credentials in Hestia configuration${NC}"
-                    DATABASE_URL="postgresql://$DB_USER:$DB_PASSWORD@localhost:5432/$DB_NAME"
-                    echo "DATABASE_URL=$DATABASE_URL" >> .env
-                    return 0
-                fi
-            fi
+    DB_CONF_FILE="$HOME/conf/web/$USER/pgsql.conf"
+    if [ -f "$DB_CONF_FILE" ]; then
+        DB_USER=$(grep "DB_USER" "$DB_CONF_FILE" | cut -d"'" -f2)
+        DB_PASSWORD=$(grep "DB_PASSWORD" "$DB_CONF_FILE" | cut -d"'" -f2)
+        DB_NAME=$(grep "DB_NAME" "$DB_CONF_FILE" | cut -d"'" -f2)
+        
+        if [ -n "$DB_USER" ] && [ -n "$DB_PASSWORD" ] && [ -n "$DB_NAME" ]; then
+            echo -e "${GREEN}Found database credentials in Hestia configuration${NC}"
+            DATABASE_URL="postgresql://$DB_USER:$DB_PASSWORD@localhost:5432/$DB_NAME"
+            echo "DATABASE_URL=$DATABASE_URL" >> .env
+            return 0
         fi
     fi
     
@@ -81,7 +86,7 @@ detect_hestia_credentials() {
     return 1
 }
 
-# Function to check system requirements
+# Function to check requirements
 check_requirements() {
     echo "Checking system requirements..."
     
@@ -91,40 +96,21 @@ check_requirements() {
         export TERM=xterm-256color
     fi
 
-    # Check Node.js
-    if ! command_exists node; then
-        echo -e "${BLUE}Node.js not found. Installing Node.js 18...${NC}"
-        install_nodejs
-    fi
+    # Setup Node.js environment
+    setup_nodejs
 
-    NODE_VERSION=$(node -v | cut -d'v' -f2)
-    if (( $(echo "$NODE_VERSION 18.0.0" | awk '{print ($1 < $2)}') )); then
-        echo -e "${RED}Node.js version must be 18.0.0 or higher. Current version: $NODE_VERSION${NC}"
-        install_nodejs
-    fi
-
-    # Ensure npm is in PATH
-    if ! grep -q "export PATH=~/.npm-global/bin:\$PATH" ~/.profile; then
-        echo "export PATH=~/.npm-global/bin:\$PATH" >> ~/.profile
-        source ~/.profile
-    fi
-
-    # Check PostgreSQL
-    if ! command_exists psql; then
-        echo -e "${BLUE}PostgreSQL not found. Installing PostgreSQL...${NC}"
-        sudo apt-get update
-        sudo apt-get install -y postgresql postgresql-contrib
-    fi
-
-    # Check if required ports are available
-    if ! command_exists netstat; then
-        sudo apt-get install -y net-tools
-    fi
-
+    # Check port 4001 using alternative methods
     echo "Checking port 4001..."
-    if netstat -tuln | grep -q ":4001 "; then
-        echo -e "${RED}Port 4001 is already in use. Please free up this port before continuing.${NC}"
-        exit 1
+    if command_exists lsof; then
+        if lsof -i :4001; then
+            echo -e "${RED}Port 4001 is already in use${NC}"
+            exit 1
+        fi
+    elif command_exists ss; then
+        if ss -ln | grep :4001; then
+            echo -e "${RED}Port 4001 is already in use${NC}"
+            exit 1
+        fi
     fi
 }
 
@@ -162,56 +148,18 @@ setup_environment() {
 install_dependencies() {
     echo "Installing dependencies..."
     
-    # Ensure npm is available in PATH
-    source ~/.profile
-    
-    # Install global dependencies first
-    echo "Installing global dependencies..."
-    npm install -g pm2 typescript ts-node --unsafe-perm=true
-    
     # Install project dependencies
-    npm install --no-optional --unsafe-perm=true
+    npm install --no-optional
+    
+    # Install global dependencies to user directory
+    echo "Installing global dependencies..."
+    npm install -g pm2 typescript ts-node
     
     # Setup PM2 with logrotate
     pm2 install pm2-logrotate
     pm2 set pm2-logrotate:max_size 10M
     pm2 set pm2-logrotate:retain 7
     pm2 set pm2-logrotate:compress true
-}
-
-# Function to setup database
-setup_database() {
-    echo "Setting up database..."
-
-    # Source the .env file to get DATABASE_URL
-    if [ -f .env ]; then
-        source .env
-    fi
-
-    if [ -z "$DATABASE_URL" ]; then
-        echo -e "${RED}DATABASE_URL environment variable is not set.${NC}"
-        echo "Please check your Hestia Control Panel > Web > Databases for credentials"
-        echo "Format: postgresql://DB_USER:DB_PASSWORD@localhost:5432/DB_NAME"
-        exit 1
-    fi
-
-    # Generate Prisma client and run migrations
-    echo "Generating Prisma client..."
-    npx prisma generate
-    
-    echo "Running database migrations..."
-    npx prisma migrate deploy
-}
-
-# Function to build application
-build_application() {
-    echo "Building application..."
-    npm run build
-
-    if [ $? -ne 0 ]; then
-        echo -e "${RED}Build failed. Please check the error messages above.${NC}"
-        exit 1
-    fi
 }
 
 # Main installation process
@@ -221,10 +169,8 @@ echo -e "${BLUE}=== Wick & Wax Co Installation Script ===${NC}\n"
 check_requirements
 setup_environment
 install_dependencies
-setup_database
-build_application
 
-echo -e "\n${GREEN}Installation completed successfully!${NC}"
+echo -e "\n${GREEN}Installation completed!${NC}"
 echo -e "${BLUE}Starting application...${NC}"
 
 # Start application with PM2
@@ -237,13 +183,12 @@ echo "1. Set up your domain in Hestia Control Panel"
 echo "2. Configure SSL certificate (if not already done)"
 echo "3. Visit https://your-domain/setup to complete the setup wizard"
 echo "4. Monitor the application using: pm2 monit"
-echo -e "\n${RED}Important Security Notes:${NC}"
-echo "1. Change the default admin password after logging in"
-echo "2. Regularly backup your database"
-echo "3. Keep your .env file secure"
 
 # Create a helpful alias for quick management
-echo "alias wickwax='pm2 monit wickwax'" >> ~/.bashrc
-source ~/.bashrc
+if [ -f "$HOME/.bashrc" ]; then
+    if ! grep -q "alias wickwax=" "$HOME/.bashrc"; then
+        echo "alias wickwax='pm2 monit wickwax'" >> "$HOME/.bashrc"
+    fi
+fi
 
 echo -e "\n${GREEN}Installation complete! Your store is ready to go!${NC}"
