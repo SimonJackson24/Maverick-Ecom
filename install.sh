@@ -148,18 +148,20 @@ setup_environment() {
 install_dependencies() {
     echo "Installing dependencies..."
     
-    # Install project dependencies
+    # Install project dependencies including PM2 locally
+    echo "Installing project dependencies..."
     npm install --no-optional
+    npm install pm2 typescript ts-node --save-dev
     
-    # Install global dependencies to user directory
-    echo "Installing global dependencies..."
-    npm install -g pm2 typescript ts-node
-    
-    # Setup PM2 with logrotate
-    pm2 install pm2-logrotate
-    pm2 set pm2-logrotate:max_size 10M
-    pm2 set pm2-logrotate:retain 7
-    pm2 set pm2-logrotate:compress true
+    # Create PM2 startup script
+    echo "Creating PM2 startup script..."
+    cat > start.sh << 'EOL'
+#!/bin/bash
+export PATH="$HOME/.local/node-v18/bin:$PATH"
+export PATH="$HOME/.npm-global/bin:$PATH"
+./node_modules/.bin/pm2 start ecosystem.config.js --env production
+EOL
+    chmod +x start.sh
 }
 
 # Main installation process
@@ -173,22 +175,26 @@ install_dependencies
 echo -e "\n${GREEN}Installation completed!${NC}"
 echo -e "${BLUE}Starting application...${NC}"
 
-# Start application with PM2
-pm2 start ecosystem.config.js --env production
-pm2 save
+# Start application with local PM2
+./start.sh
 
 echo -e "\n${GREEN}Application is now running!${NC}"
 echo -e "${BLUE}Next steps:${NC}"
 echo "1. Set up your domain in Hestia Control Panel"
 echo "2. Configure SSL certificate (if not already done)"
 echo "3. Visit https://your-domain/setup to complete the setup wizard"
-echo "4. Monitor the application using: pm2 monit"
+echo "4. Monitor the application using: ./node_modules/.bin/pm2 monit"
 
 # Create a helpful alias for quick management
 if [ -f "$HOME/.bashrc" ]; then
     if ! grep -q "alias wickwax=" "$HOME/.bashrc"; then
-        echo "alias wickwax='pm2 monit wickwax'" >> "$HOME/.bashrc"
+        echo "alias wickwax='./node_modules/.bin/pm2 monit wickwax'" >> "$HOME/.bashrc"
     fi
 fi
 
 echo -e "\n${GREEN}Installation complete! Your store is ready to go!${NC}"
+echo -e "${BLUE}To manage your application, use:${NC}"
+echo "- Start: ./start.sh"
+echo "- Monitor: ./node_modules/.bin/pm2 monit"
+echo "- Stop: ./node_modules/.bin/pm2 stop all"
+echo "- Logs: ./node_modules/.bin/pm2 logs"
