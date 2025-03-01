@@ -193,7 +193,7 @@ EOL
 export PATH="$HOME/.local/bin:$PATH"
 export NPM_CONFIG_PREFIX="$HOME/.local"
 export NPM_CONFIG_CACHE="$HOME/.npm"
-NODE_ENV=production ./node_modules/.bin/pm2 start ecosystem.config.js --env production
+NODE_ENV=production ./node_modules/.bin/pm2 start ecosystem.config.cjs --env production
 EOL
     chmod +x start.sh
     
