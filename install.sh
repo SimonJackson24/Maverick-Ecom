@@ -175,7 +175,8 @@ install_dependencies() {
   "private": true,
   "scripts": {
     "start": "node server.js",
-    "dev": "nodemon server.js"
+    "dev": "nodemon server.js",
+    "build": "tsc"
   }
 }
 EOL
@@ -185,6 +186,10 @@ EOL
     echo "Installing project dependencies..."
     npm install --no-optional
     npm install pm2 typescript ts-node --save-dev
+    
+    # Build the project
+    echo "Building the project..."
+    npm run build
     
     # Create PM2 startup script
     echo "Creating PM2 startup script..."

@@ -1,7 +1,7 @@
 module.exports = {
   apps: [{
     name: 'wick-and-wax',
-    script: 'server.js',
+    script: 'dist/server/index.js',
     instances: 1,
     autorestart: true,
     watch: false,
