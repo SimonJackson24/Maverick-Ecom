@@ -10,12 +10,37 @@ import {
   Table,
   Tag,
   message,
+  Alert,
+  Spin,
 } from 'antd';
+import { useQuery, gql } from '@apollo/client';
 import type { TabsProps } from 'antd';
-import { EditOutlined, DeleteOutlined, PlusOutlined } from '@ant-design/icons';
+import { EditOutlined, DeleteOutlined, PlusOutlined, ReloadOutlined } from '@ant-design/icons';
 
 const { Title, Text } = Typography;
 const { TextArea } = Input;
+
+const GET_SEO_METRICS = gql`
+  query GetSEOMetrics($url: String!) {
+    getSEOMetrics(url: $url) {
+      readabilityScore
+      keywordDensity {
+        keyword
+        density
+      }
+      wordCount
+      metaTags {
+        title
+        description
+        keywords
+      }
+      headings {
+        level
+        text
+      }
+    }
+  }
+`;
 
 interface MetaTag {
   id: string;
@@ -38,8 +63,118 @@ interface Redirect {
 const SEOPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('meta-tags');
   const [form] = Form.useForm();
+  const [selectedUrl, setSelectedUrl] = useState<string>('');
 
-  // Mock data - replace with actual API calls
+  const { loading, error, data, refetch } = useQuery(GET_SEO_METRICS, {
+    variables: { url: selectedUrl },
+    skip: !selectedUrl,
+    notifyOnNetworkStatusChange: true,
+  });
+
+  const handleAnalyze = (values: { url: string }) => {
+    setSelectedUrl(values.url);
+  };
+
+  const handleRefresh = () => {
+    if (selectedUrl) {
+      refetch();
+    }
+  };
+
+  const renderSEOMetrics = () => {
+    if (loading) {
+      return (
+        <div style={{ textAlign: 'center', padding: '2rem' }}>
+          <Spin size="large" />
+          <Text style={{ display: 'block', marginTop: '1rem' }}>Loading SEO metrics...</Text>
+        </div>
+      );
+    }
+
+    if (error) {
+      return (
+        <Alert
+          message="Error"
+          description={error.message || 'Failed to load SEO metrics. Please try again.'}
+          type="error"
+          showIcon
+          action={
+            <Button icon={<ReloadOutlined />} onClick={handleRefresh}>
+              Retry
+            </Button>
+          }
+        />
+      );
+    }
+
+    if (!data?.getSEOMetrics) {
+      return (
+        <Alert
+          message="No Data"
+          description="Enter a URL above and click Analyze to view SEO metrics."
+          type="info"
+          showIcon
+        />
+      );
+    }
+
+    const { readabilityScore, keywordDensity, wordCount, metaTags, headings } = data.getSEOMetrics;
+
+    return (
+      <Space direction="vertical" style={{ width: '100%' }} size="large">
+        <Card title="Overview">
+          <Space direction="vertical" style={{ width: '100%' }}>
+            <Text>Readability Score: {readabilityScore.toFixed(1)}</Text>
+            <Text>Word Count: {wordCount}</Text>
+          </Space>
+        </Card>
+
+        <Card title="Meta Tags">
+          <Space direction="vertical" style={{ width: '100%' }}>
+            <Text strong>Title:</Text>
+            <Text>{metaTags.title || 'Not found'}</Text>
+            <Text strong>Description:</Text>
+            <Text>{metaTags.description || 'Not found'}</Text>
+            <Text strong>Keywords:</Text>
+            <Text>{metaTags.keywords || 'Not found'}</Text>
+          </Space>
+        </Card>
+
+        <Card title="Keyword Density">
+          <Table
+            dataSource={keywordDensity}
+            columns={[
+              { title: 'Keyword', dataIndex: 'keyword' },
+              { 
+                title: 'Density (%)', 
+                dataIndex: 'density',
+                render: (value: number) => value.toFixed(2)
+              },
+            ]}
+            size="small"
+            pagination={{ pageSize: 10 }}
+          />
+        </Card>
+
+        <Card title="Headings Structure">
+          <Table
+            dataSource={headings}
+            columns={[
+              { 
+                title: 'Level', 
+                dataIndex: 'level',
+                render: (level: number) => `H${level}`
+              },
+              { title: 'Text', dataIndex: 'text' },
+            ]}
+            size="small"
+            pagination={{ pageSize: 10 }}
+          />
+        </Card>
+      </Space>
+    );
+  };
+
   const metaTags: MetaTag[] = [
     {
       id: '1',
@@ -212,6 +347,42 @@ const SEOPage: React.FC = () => {
               </Space>
             </Form.Item>
           </Form>
+        </div>
+      ),
+    },
+    {
+      key: 'seo-analysis',
+      label: 'SEO Analysis',
+      children: (
+        <div>
+          <Form form={form} onFinish={handleAnalyze} style={{ marginBottom: '2rem' }}>
+            <Space style={{ width: '100%' }}>
+              <Form.Item
+                name="url"
+                style={{ flex: 1, marginBottom: 0 }}
+                rules={[
+                  { required: true, message: 'Please enter a URL' },
+                  { type: 'url', message: 'Please enter a valid URL' }
+                ]}
+              >
+                <Input placeholder="Enter URL to analyze" />
+              </Form.Item>
+              <Form.Item style={{ marginBottom: 0 }}>
+                <Button type="primary" htmlType="submit" loading={loading}>
+                  Analyze
+                </Button>
+              </Form.Item>
+              {selectedUrl && (
+                <Form.Item style={{ marginBottom: 0 }}>
+                  <Button icon={<ReloadOutlined />} onClick={handleRefresh} loading={loading}>
+                    Refresh
+                  </Button>
+                </Form.Item>
+              )}
+            </Space>
+          </Form>
+
+          {renderSEOMetrics()}
         </div>
       ),
     },

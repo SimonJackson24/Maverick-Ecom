@@ -56,14 +56,76 @@ input CreateAdminUserInput {
 }
 
 type Query {
-  setupState: SetupState!
-  storeSettings: StoreSettings
   testDatabaseConnection: Boolean!
+  getSetupProgress: SetupProgress!
 }
 
 type Mutation {
-  updateSetupState(input: UpdateSetupStateInput!): SetupState!
   createStoreSettings(input: CreateStoreSettingsInput!): StoreSettings!
-  createAdminUser(input: CreateAdminUserInput!): User!
+  createAdminUser(input: CreateAdminUserInput!): AdminUser!
   runDatabaseMigrations: Boolean!
+  configureSecuritySettings(input: SecuritySettingsInput!): SecuritySettings!
+  completeSetup: Boolean!
+}
+
+type SetupProgress {
+  currentStep: String!
+  completedSteps: [String!]!
+  storeSettings: StoreSettings
+  adminSettings: AdminUser
+  databaseSettings: DatabaseSettings
+  securitySettings: SecuritySettings
+}
+
+input AddressInput {
+  street: String!
+  city: String!
+  state: String!
+  postalCode: String!
+  country: String!
+}
+
+input SecuritySettingsInput {
+  sslEnabled: Boolean!
+  firewallEnabled: Boolean!
+  rateLimitEnabled: Boolean!
+  corsOrigins: [String!]!
+  authType: String!
+  sessionSecret: String
+  jwtSecret: String
+}
+
+type Address {
+  street: String!
+  city: String!
+  state: String!
+  postalCode: String!
+  country: String!
+}
+
+type AdminUser {
+  id: ID!
+  email: String!
+  firstName: String
+  lastName: String
+  phoneNumber: String
+  twoFactorEnabled: Boolean!
+}
+
+type DatabaseSettings {
+  host: String!
+  port: Int!
+  database: String!
+  username: String!
+  ssl: Boolean!
+  connectionStatus: String!
+  migrationStatus: String!
+}
+
+type SecuritySettings {
+  sslEnabled: Boolean!
+  firewallEnabled: Boolean!
+  rateLimitEnabled: Boolean!
+  corsOrigins: [String!]!
+  authType: String!
 }

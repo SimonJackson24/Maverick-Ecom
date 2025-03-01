@@ -20,7 +20,7 @@ import {
 
 // Create an http link
 const httpLink = new HttpLink({
-  uri: import.meta.env.VITE_GRAPHQL_URL || 'http://localhost:4000/graphql',
+  uri: import.meta.env.VITE_GRAPHQL_URL || 'http://localhost:4001/graphql',
   credentials: 'include',
   headers: {
     'apollo-require-preflight': 'true'

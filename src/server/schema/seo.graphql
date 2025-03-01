@@ -1,0 +1,27 @@
+type SEOMetrics {
+  readabilityScore: Float!
+  keywordDensity: [KeywordDensity!]!
+  wordCount: Int!
+  metaTags: MetaTags!
+  headings: [Heading!]!
+}
+
+type KeywordDensity {
+  keyword: String!
+  density: Float!
+}
+
+type MetaTags {
+  title: String
+  description: String
+  keywords: String
+}
+
+type Heading {
+  level: Int!
+  text: String!
+}
+
+type Query {
+  getSEOMetrics(url: String!): SEOMetrics!
+}
