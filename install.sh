@@ -11,6 +11,37 @@ command_exists() {
     command -v "$1" >/dev/null 2>&1
 }
 
+# Function to detect Hestia database credentials
+detect_hestia_credentials() {
+    echo "Detecting Hestia database credentials..."
+    
+    # Try to find the database configuration file
+    HESTIA_CONF_DIR="/home/admin/conf/web"
+    if [ -d "$HESTIA_CONF_DIR" ]; then
+        # Get the domain name from current directory
+        DOMAIN=$(pwd | grep -o '[^/]*.co.uk\|[^/]*.com\|[^/]*.net\|[^/]*.org' || echo "")
+        if [ -n "$DOMAIN" ]; then
+            echo "Detected domain: $DOMAIN"
+            DB_CONF_FILE="$HESTIA_CONF_DIR/$DOMAIN/pgsql.conf"
+            if [ -f "$DB_CONF_FILE" ]; then
+                DB_USER=$(grep "DB_USER" "$DB_CONF_FILE" | cut -d"'" -f2)
+                DB_PASSWORD=$(grep "DB_PASSWORD" "$DB_CONF_FILE" | cut -d"'" -f2)
+                DB_NAME=$(grep "DB_NAME" "$DB_CONF_FILE" | cut -d"'" -f2)
+                
+                if [ -n "$DB_USER" ] && [ -n "$DB_PASSWORD" ] && [ -n "$DB_NAME" ]; then
+                    echo -e "${GREEN}Found database credentials in Hestia configuration${NC}"
+                    DATABASE_URL="postgresql://$DB_USER:$DB_PASSWORD@localhost:5432/$DB_NAME"
+                    echo "DATABASE_URL=$DATABASE_URL" >> .env
+                    return 0
+                fi
+            fi
+        fi
+    fi
+    
+    echo -e "${RED}Could not automatically detect Hestia database credentials${NC}"
+    return 1
+}
+
 # Function to check system requirements
 check_requirements() {
     echo "Checking system requirements..."
@@ -23,11 +54,9 @@ check_requirements() {
 
     # Check Node.js
     if ! command_exists node; then
-        echo -e "${RED}Node.js is not installed. Please install Node.js 18 or higher.${NC}"
-        echo "For Ubuntu/Debian:"
-        echo "curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -"
-        echo "sudo apt-get install -y nodejs"
-        exit 1
+        echo -e "${BLUE}Node.js not found. Installing Node.js 18...${NC}"
+        curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+        sudo apt-get install -y nodejs
     fi
 
     NODE_VERSION=$(node -v | cut -d'v' -f2)
@@ -38,15 +67,14 @@ check_requirements() {
 
     # Check PostgreSQL
     if ! command_exists psql; then
-        echo -e "${RED}PostgreSQL is not installed.${NC}"
-        echo "For Ubuntu/Debian:"
-        echo "sudo apt-get install postgresql postgresql-contrib"
-        exit 1
+        echo -e "${BLUE}PostgreSQL not found. Installing PostgreSQL...${NC}"
+        sudo apt-get update
+        sudo apt-get install -y postgresql postgresql-contrib
     fi
 
     # Check if required ports are available
     if ! command_exists netstat; then
-        sudo apt-get install net-tools
+        sudo apt-get install -y net-tools
     fi
 
     echo "Checking port 4001..."
@@ -60,51 +88,70 @@ check_requirements() {
 setup_environment() {
     echo "Setting up environment..."
 
-    # Create necessary directories
-    mkdir -p logs/pm2
-    mkdir -p public/uploads
-    mkdir -p backups
-
-    # Set correct permissions
-    chmod 755 logs
-    chmod 755 public/uploads
-    chmod 755 backups
+    # Create necessary directories with proper permissions
+    mkdir -p logs/pm2 public/uploads backups
+    chmod 755 logs public/uploads backups
 
     # Create .env file if it doesn't exist
     if [ ! -f .env ]; then
         echo "Creating .env file..."
         cp .env.example .env
-        echo -e "${GREEN}Created .env file. Please update it with your configuration.${NC}"
+        
+        # Generate random secrets
+        JWT_SECRET=$(openssl rand -base64 32)
+        SESSION_SECRET=$(openssl rand -base64 32)
+        COOKIE_SECRET=$(openssl rand -base64 32)
+        
+        # Update .env with secure secrets
+        sed -i "s/JWT_SECRET=.*/JWT_SECRET=$JWT_SECRET/" .env
+        sed -i "s/SESSION_SECRET=.*/SESSION_SECRET=$SESSION_SECRET/" .env
+        sed -i "s/COOKIE_SECRET=.*/COOKIE_SECRET=$COOKIE_SECRET/" .env
+        
+        # Try to detect and set Hestia database credentials
+        detect_hestia_credentials
+        
+        echo -e "${GREEN}Created and configured .env file${NC}"
     fi
 }
 
 # Function to install dependencies
 install_dependencies() {
     echo "Installing dependencies..."
-    npm install --no-optional
-
-    # Install global dependencies
+    
+    # Install global dependencies first
     echo "Installing global dependencies..."
     sudo npm install -g pm2 typescript ts-node
+    
+    # Install project dependencies
+    npm install --no-optional
+    
+    # Setup PM2 with logrotate
+    pm2 install pm2-logrotate
+    pm2 set pm2-logrotate:max_size 10M
+    pm2 set pm2-logrotate:retain 7
+    pm2 set pm2-logrotate:compress true
 }
 
 # Function to setup database
 setup_database() {
     echo "Setting up database..."
 
-    # Check if DATABASE_URL is set
+    # Source the .env file to get DATABASE_URL
+    if [ -f .env ]; then
+        source .env
+    fi
+
     if [ -z "$DATABASE_URL" ]; then
         echo -e "${RED}DATABASE_URL environment variable is not set.${NC}"
-        echo "Please set it in your .env file or environment variables."
-        echo "Example format: postgresql://user:password@localhost:5432/wickandwax"
+        echo "Please check your Hestia Control Panel > Web > Databases for credentials"
+        echo "Format: postgresql://DB_USER:DB_PASSWORD@localhost:5432/DB_NAME"
         exit 1
     fi
 
-    # Generate Prisma client
+    # Generate Prisma client and run migrations
     echo "Generating Prisma client..."
     npx prisma generate
-
-    # Run database migrations
+    
     echo "Running database migrations..."
     npx prisma migrate deploy
 }
@@ -120,32 +167,6 @@ build_application() {
     fi
 }
 
-# Function to setup PM2
-setup_pm2() {
-    echo "Setting up PM2..."
-    pm2 install pm2-logrotate
-    pm2 set pm2-logrotate:max_size 10M
-    pm2 set pm2-logrotate:retain 7
-    pm2 set pm2-logrotate:compress true
-}
-
-# Function to configure security
-configure_security() {
-    echo "Configuring security settings..."
-
-    # Generate random secrets
-    JWT_SECRET=$(openssl rand -base64 32)
-    SESSION_SECRET=$(openssl rand -base64 32)
-    COOKIE_SECRET=$(openssl rand -base64 32)
-
-    # Update .env file with secrets
-    sed -i "s/JWT_SECRET=.*/JWT_SECRET=$JWT_SECRET/" .env
-    sed -i "s/SESSION_SECRET=.*/SESSION_SECRET=$SESSION_SECRET/" .env
-    sed -i "s/COOKIE_SECRET=.*/COOKIE_SECRET=$COOKIE_SECRET/" .env
-
-    echo -e "${GREEN}Security settings configured successfully.${NC}"
-}
-
 # Main installation process
 echo -e "${BLUE}=== Wick & Wax Co Installation Script ===${NC}\n"
 
@@ -155,33 +176,27 @@ setup_environment
 install_dependencies
 setup_database
 build_application
-setup_pm2
-configure_security
 
 echo -e "\n${GREEN}Installation completed successfully!${NC}"
-echo -e "${BLUE}Next steps:${NC}"
-echo "1. Update the .env file with your configuration"
-echo "2. Visit http://your-domain/setup to complete the setup wizard"
-echo "3. Follow the setup wizard steps:"
-echo "   - Store Setup"
-echo "   - Admin Account"
-echo "   - Database Configuration"
-echo "   - Security Settings"
-echo -e "\n${RED}Important:${NC}"
-echo "1. Make sure to change the default admin password after logging in"
-echo "2. Configure your web server (nginx/Apache) to proxy requests to the application"
-echo "3. Set up SSL certificates for secure HTTPS connections"
-echo "4. Configure regular database backups"
-echo "5. Review and adjust security settings as needed"
+echo -e "${BLUE}Starting application...${NC}"
 
 # Start application with PM2
-echo -e "\nWould you like to start the application now? (y/n)"
-read -r START_APP
+pm2 start ecosystem.config.js --env production
+pm2 save
 
-if [ "$START_APP" = "y" ]; then
-    echo "Starting application with PM2..."
-    pm2 start ecosystem.config.js --env production
-    pm2 save
-    echo -e "${GREEN}Application started successfully!${NC}"
-    echo "You can monitor the application using: pm2 monit"
-fi
+echo -e "\n${GREEN}Application is now running!${NC}"
+echo -e "${BLUE}Next steps:${NC}"
+echo "1. Set up your domain in Hestia Control Panel"
+echo "2. Configure SSL certificate (if not already done)"
+echo "3. Visit https://your-domain/setup to complete the setup wizard"
+echo "4. Monitor the application using: pm2 monit"
+echo -e "\n${RED}Important Security Notes:${NC}"
+echo "1. Change the default admin password after logging in"
+echo "2. Regularly backup your database"
+echo "3. Keep your .env file secure"
+
+# Create a helpful alias for quick management
+echo "alias wickwax='pm2 monit wickwax'" >> ~/.bashrc
+source ~/.bashrc
+
+echo -e "\n${GREEN}Installation complete! Your store is ready to go!${NC}"
