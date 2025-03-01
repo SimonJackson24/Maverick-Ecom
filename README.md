@@ -1,69 +1,135 @@
-# The Wick & Wax Co E-commerce Platform
+# Wick and Wax Co E-commerce Platform
 
-A high-performance, SEO-optimized e-commerce website built with React and Adobe Commerce, specializing in eco-friendly candles, bath bombs, wax melts, and soaps.
+## Overview
+A modern e-commerce platform for Wick and Wax Co, specializing in artisanal candles and home fragrances. Built with React, TypeScript, and Adobe Commerce.
 
-## Features
+## Current Status
 
-- 🌿 Eco-friendly product showcase
-- 📱 Responsive, mobile-first design
-- 🛒 Intuitive shopping experience
-- 💳 Streamlined checkout process
-- 📝 Sustainability blog
-- 🔍 SEO optimization
-- 🎯 Personalization features
-- 📊 Sustainability tracking
+### Completed Features
+1. **Core E-commerce**
+   - Product catalog with listings and filtering
+   - Shopping cart with real-time updates
+   - Featured products showcase
+   - Promo code functionality
+   - User authentication (registration and login)
 
-## Tech Stack
+2. **Product Reviews & Ratings**
+   - Review submission and display
+   - Rating system
+   - Verified purchase badges
+   - Helpful/unhelpful voting
+   - Review moderation system
 
-- Frontend: React 18+
-- Backend: Adobe Commerce
-- State Management: Redux Toolkit
-- Styling: Tailwind CSS
-- Testing: Jest & React Testing Library
-- Performance Monitoring: Adobe Commerce Analytics
+3. **Guest Checkout**
+   - Multi-step checkout flow
+   - Cart summary sidebar
+   - Order confirmation
+   - Analytics tracking
+   - A/B testing framework
+   - Abandoned cart recovery
+   - Payment integration
+   - Address validation
 
-## Getting Started
+4. **Order Tracking**
+   - Guest order tracking
+   - Order status updates
+   - Order history
+   - Shipping notifications
+   - Order confirmation emails
+
+5. **Wishlist**
+   - Multiple wishlists support
+   - Wishlist sharing
+   - Add to cart from wishlist
+   - Wishlist analytics
+   - Social sharing
+
+6. **Analytics System**
+   - Checkout flow tracking
+   - Cart interaction analytics
+   - Wishlist usage metrics
+   - A/B testing framework
+   - User behavior analysis
+   - Conversion tracking
+
+7. **Scent-Based Features**
+   - Scent attributes configuration
+   - Related products functionality
+   - Cart upsells
+   - Preference tracking
+   - Personalized recommendations
+
+### In Progress
+1. **Security & Performance**
+   - Security testing setup
+   - Performance optimization
+   - Load testing
+   - E2E testing
+   - API documentation
+   - Component documentation
+
+2. **Pre-launch Configuration**
+   - Production environment setup
+   - SSL configuration
+   - Monitoring setup
+   - Backup configuration
+   - Error tracking
+   - Logging setup
+
+3. **Legal & Compliance**
+   - Privacy policy
+   - Terms of service
+   - Return policy
+   - Cookie consent
+   - GDPR compliance
+
+## Development
 
 ### Prerequisites
+- Node.js >= 16.x
+- npm >= 8.x
+- Adobe Commerce >= 2.4.x
 
-- Node.js (v18+)
-- npm or yarn
-- Adobe Commerce account and API credentials
-
-### Installation
-
+### Setup
 1. Clone the repository
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-3. Create a `.env` file with your Adobe Commerce credentials
-4. Start the development server:
-   ```bash
-   npm run dev
-   ```
-
-## Project Structure
-
-```
-wick-and-wax-co/
-├── src/
-│   ├── components/      # Reusable UI components
-│   ├── pages/          # Page components
-│   ├── features/       # Feature-specific components
-│   ├── hooks/          # Custom React hooks
-│   ├── services/       # API and third-party services
-│   ├── store/          # Redux store configuration
-│   ├── styles/         # Global styles and Tailwind config
-│   └── utils/          # Utility functions
-├── public/             # Static assets
-└── tests/              # Test files
+```bash
+git clone https://github.com/your-org/wick-and-wax-co.git
+cd wick-and-wax-co
 ```
 
-## Contributing
+2. Install dependencies
+```bash
+npm install
+```
 
-Please read our contributing guidelines before submitting pull requests.
+3. Configure environment variables
+```bash
+cp .env.example .env
+# Edit .env with your configuration
+```
+
+4. Start development server
+```bash
+npm run dev
+```
+
+### Testing
+```bash
+# Unit tests
+npm run test
+
+# Integration tests
+npm run test:integration
+
+# E2E tests (coming soon)
+npm run test:e2e
+```
+
+## Documentation
+- [API Documentation](./docs/api/README.md)
+- [Component Library](./docs/components/README.md)
+- [Deployment Guide](./docs/deployment/README.md)
+- [Development Guidelines](./docs/development/README.md)
 
 ## License
-
-This project is licensed under the MIT License.
+Proprietary - All Rights Reserved

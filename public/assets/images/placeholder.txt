@@ -1,0 +1,5 @@
+This directory is for logo files:
+- logo-full.png: Full logo with text
+- logo-symbol.png: Icon-only version
+
+Please add your logo files here when ready.

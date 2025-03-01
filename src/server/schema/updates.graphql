@@ -1,0 +1,32 @@
+type VersionInfo {
+  currentVersion: String!
+  latestVersion: String!
+  updateAvailable: Boolean!
+  releaseNotes: String
+}
+
+type SystemSettings {
+  id: Int!
+  version: String!
+  lastUpdated: DateTime!
+  autoUpdate: Boolean!
+  updateChannel: String!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+input UpdateSystemSettingsInput {
+  autoUpdate: Boolean
+  updateChannel: String
+}
+
+type Query {
+  versionInfo: VersionInfo!
+  systemSettings: SystemSettings!
+}
+
+type Mutation {
+  checkForUpdates: VersionInfo!
+  performUpdate: Boolean!
+  updateSystemSettings(input: UpdateSystemSettingsInput!): SystemSettings!
+}

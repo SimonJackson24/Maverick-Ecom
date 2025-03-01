@@ -1,0 +1,125 @@
+scalar DateTime
+
+type SeoMetrics {
+  overallScore: Float!
+  scoreTrend: Float!
+  contentHealthScore: Float!
+  contentHealthTrend: Float!
+  metaTagScore: Float!
+  metaTagTrend: Float!
+  urlScore: Float!
+  urlTrend: Float!
+  keywordPerformance: [KeywordPerformance!]!
+  contentHealth: [ContentHealth!]!
+  metaTags: [MetaTag!]!
+  urls: [UrlManagement!]!
+  issues: [SeoIssue!]!
+}
+
+type KeywordPerformance {
+  id: ID!
+  keyword: String!
+  position: Int!
+  trend: Float!
+  volume: Int!
+  difficulty: Float!
+  relevance: Float!
+  lastChecked: DateTime!
+}
+
+type ContentHealth {
+  id: ID!
+  url: String!
+  title: String!
+  wordCount: Int!
+  readabilityScore: Float!
+  keywordDensity: Float!
+  issues: [String!]!
+}
+
+type MetaTag {
+  id: ID!
+  url: String!
+  title: String!
+  description: String
+  keywords: [String!]!
+  status: String!
+  issues: [String!]
+}
+
+type UrlManagement {
+  id: ID!
+  currentUrl: String!
+  targetUrl: String!
+  type: UrlType!
+  status: Int!
+  lastChecked: DateTime!
+}
+
+type SeoIssue {
+  id: ID!
+  type: SeoIssueType!
+  message: String!
+  url: String!
+  component: String!
+}
+
+enum UrlType {
+  REDIRECT
+  CANONICAL
+  ALTERNATE
+}
+
+enum SeoIssueType {
+  ERROR
+  WARNING
+  INFO
+}
+
+input MetaTagInput {
+  url: String!
+  title: String
+  description: String
+  keywords: [String!]
+}
+
+input UpdateUrlManagementInput {
+  id: ID
+  currentUrl: String!
+  targetUrl: String!
+  type: UrlType!
+}
+
+input KeywordInput {
+  term: String!
+  priority: KeywordPriority!
+  location: String!
+}
+
+enum KeywordPriority {
+  HIGH
+  MEDIUM
+  LOW
+}
+
+type Query {
+  seoMetrics: SeoMetrics!
+  keywordPerformance(keyword: String): [KeywordPerformance!]!
+  contentHealth(url: String): [ContentHealth!]!
+  metaTags(url: String): [MetaTag!]!
+  urlManagement(url: String): [UrlManagement!]!
+  seoIssues(type: String): [SeoIssue!]!
+}
+
+type Mutation {
+  updateMetaTag(input: MetaTagInput!): MetaTag!
+  runSeoAnalysis(url: String!): SeoMetrics!
+  checkKeywordRankings: [KeywordPerformance!]!
+  updateUrlManagement(input: UpdateUrlManagementInput!): UrlManagement!
+  deleteUrlManagement(id: ID!): Boolean!
+  deleteMetaTag(id: ID!): Boolean!
+  addKeyword(input: KeywordInput!): KeywordPerformance!
+  updateKeyword(id: ID!, input: KeywordInput!): KeywordPerformance!
+  deleteKeyword(id: ID!): Boolean!
+  bulkUpdateKeywords(keywords: [KeywordInput!]!): [KeywordPerformance!]!
+}

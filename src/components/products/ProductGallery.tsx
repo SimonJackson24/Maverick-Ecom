@@ -11,7 +11,7 @@ interface ProductGalleryProps {
 }
 
 export const ProductGallery: React.FC<ProductGalleryProps> = ({ images }) => {
-  const [selectedImage, setSelectedImage] = useState(images[0]);
+  const [currentImage, setCurrentImage] = useState(images[0]);
 
   return (
     <div className="flex flex-col-reverse">
@@ -52,8 +52,8 @@ export const ProductGallery: React.FC<ProductGalleryProps> = ({ images }) => {
           {images.map((image) => (
             <Tab.Panel key={image.position}>
               <img
-                src={image.url}
-                alt={image.label}
+                src={currentImage.url}
+                alt={currentImage.label}
                 className="h-full w-full object-cover object-center sm:rounded-lg"
               />
             </Tab.Panel>

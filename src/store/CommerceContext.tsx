@@ -5,24 +5,74 @@ import {
   ADD_TO_CART,
   UPDATE_CART_ITEM,
   REMOVE_FROM_CART,
-} from '../services/cartQueries';
-import {
   SET_SHIPPING_ADDRESS,
   SET_BILLING_ADDRESS,
   SET_SHIPPING_METHOD,
   SET_PAYMENT_METHOD,
   PLACE_ORDER,
-} from '../services/checkoutQueries';
-import type { Cart, CartItem, ShippingAddress, PaymentMethod } from '../types/commerce';
+} from '../graphql/commerce';
+
+interface CartItem {
+  id: string;
+  product: {
+    id: string;
+    name: string;
+    price: number;
+    images: Array<{
+      url: string;
+      alt: string;
+    }>;
+  };
+  quantity: number;
+  total: number;
+}
+
+interface Cart {
+  id: string;
+  items: CartItem[];
+  subtotal: number;
+  tax: number;
+  shipping: number;
+  total: number;
+}
+
+interface Address {
+  firstName: string;
+  lastName: string;
+  company?: string;
+  street: string;
+  city: string;
+  state: string;
+  postcode: string;
+  country: string;
+  phone: string;
+}
+
+interface ShippingMethod {
+  id: string;
+  name: string;
+  price: number;
+  estimatedDays: number;
+}
+
+interface PaymentMethod {
+  id: string;
+  name: string;
+  type: string;
+}
 
 interface CommerceContextType {
   cart: Cart | null;
   loading: boolean;
   error: Error | null;
-  addToCart: (sku: string, quantity: number) => Promise<void>;
+  addToCart: (productId: string, quantity: number) => Promise<void>;
   updateCartItem: (itemId: string, quantity: number) => Promise<void>;
   removeFromCart: (itemId: string) => Promise<void>;
-  placeOrder: (input: { shippingAddress: ShippingAddress; paymentMethod: PaymentMethod }) => Promise<void>;
+  setShippingAddress: (address: Address) => Promise<void>;
+  setBillingAddress: (address: Address) => Promise<void>;
+  setShippingMethod: (methodId: string) => Promise<void>;
+  setPaymentMethod: (methodId: string) => Promise<void>;
+  placeOrder: () => Promise<{ id: string; orderNumber: string }>;
 }
 
 const CommerceContext = createContext<CommerceContextType | undefined>(undefined);
@@ -31,7 +81,7 @@ export const CommerceProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [error, setError] = useState<Error | null>(null);
 
   // Query to get cart data
-  const { data, loading: cartLoading, refetch } = useQuery(GET_CART);
+  const { data, loading: cartLoading, refetch: refetchCart } = useQuery(GET_CART);
 
   // Cart mutations
   const [addToCartMutation] = useMutation(ADD_TO_CART);
@@ -45,185 +95,111 @@ export const CommerceProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [setPaymentMethodMutation] = useMutation(SET_PAYMENT_METHOD);
   const [placeOrderMutation] = useMutation(PLACE_ORDER);
 
-  const addToCart = useCallback(
-    async (sku: string, quantity: number) => {
-      try {
-        await addToCartMutation({
-          variables: {
-            input: {
-              cart_id: data?.cart?.id,
-              cart_items: [
-                {
-                  data: {
-                    quantity,
-                    sku,
-                  },
-                },
-              ],
-            },
-          },
-        });
-        await refetch();
-        setError(null);
-      } catch (err) {
-        setError(err as Error);
-        throw err;
-      }
-    },
-    [addToCartMutation, data?.cart?.id, refetch]
-  );
+  const addToCart = useCallback(async (productId: string, quantity: number) => {
+    try {
+      await addToCartMutation({
+        variables: { productId, quantity },
+      });
+      await refetchCart();
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err : new Error('Failed to add to cart'));
+      throw err;
+    }
+  }, [addToCartMutation, refetchCart]);
 
-  const updateCartItem = useCallback(
-    async (itemId: string, quantity: number) => {
-      try {
-        await updateCartItemMutation({
-          variables: {
-            input: {
-              cart_id: data?.cart?.id,
-              cart_items: [
-                {
-                  cart_item_id: itemId,
-                  quantity,
-                },
-              ],
-            },
-          },
-        });
-        await refetch();
-        setError(null);
-      } catch (err) {
-        setError(err as Error);
-        throw err;
-      }
-    },
-    [updateCartItemMutation, data?.cart?.id, refetch]
-  );
+  const updateCartItem = useCallback(async (itemId: string, quantity: number) => {
+    try {
+      await updateCartItemMutation({
+        variables: { itemId, quantity },
+      });
+      await refetchCart();
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err : new Error('Failed to update cart item'));
+      throw err;
+    }
+  }, [updateCartItemMutation, refetchCart]);
 
-  const removeFromCart = useCallback(
-    async (itemId: string) => {
-      try {
-        await removeFromCartMutation({
-          variables: {
-            input: {
-              cart_id: data?.cart?.id,
-              cart_item_id: itemId,
-            },
-          },
-        });
-        await refetch();
-        setError(null);
-      } catch (err) {
-        setError(err as Error);
-        throw err;
-      }
-    },
-    [removeFromCartMutation, data?.cart?.id, refetch]
-  );
+  const removeFromCart = useCallback(async (itemId: string) => {
+    try {
+      await removeFromCartMutation({
+        variables: { itemId },
+      });
+      await refetchCart();
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err : new Error('Failed to remove from cart'));
+      throw err;
+    }
+  }, [removeFromCartMutation, refetchCart]);
 
-  const placeOrder = useCallback(
-    async ({ shippingAddress, paymentMethod }: { shippingAddress: ShippingAddress; paymentMethod: PaymentMethod }) => {
-      try {
-        // Set shipping address
-        await setShippingAddressMutation({
-          variables: {
-            input: {
-              cart_id: data?.cart?.id,
-              shipping_addresses: [
-                {
-                  address: {
-                    firstname: shippingAddress.firstName,
-                    lastname: shippingAddress.lastName,
-                    street: [shippingAddress.streetAddress1, shippingAddress.streetAddress2],
-                    city: shippingAddress.city,
-                    region: shippingAddress.region,
-                    postcode: shippingAddress.postcode,
-                    telephone: shippingAddress.telephone,
-                    save_in_address_book: false,
-                  },
-                },
-              ],
-            },
-          },
-        });
+  const setShippingAddress = useCallback(async (address: Address) => {
+    try {
+      await setShippingAddressMutation({
+        variables: { input: address },
+      });
+      await refetchCart();
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err : new Error('Failed to set shipping address'));
+      throw err;
+    }
+  }, [setShippingAddressMutation, refetchCart]);
 
-        // Set billing address (same as shipping)
-        await setBillingAddressMutation({
-          variables: {
-            input: {
-              cart_id: data?.cart?.id,
-              billing_address: {
-                address: {
-                  firstname: shippingAddress.firstName,
-                  lastname: shippingAddress.lastName,
-                  street: [shippingAddress.streetAddress1, shippingAddress.streetAddress2],
-                  city: shippingAddress.city,
-                  region: shippingAddress.region,
-                  postcode: shippingAddress.postcode,
-                  telephone: shippingAddress.telephone,
-                  save_in_address_book: false,
-                },
-              },
-            },
-          },
-        });
+  const setBillingAddress = useCallback(async (address: Address) => {
+    try {
+      await setBillingAddressMutation({
+        variables: { input: address },
+      });
+      await refetchCart();
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err : new Error('Failed to set billing address'));
+      throw err;
+    }
+  }, [setBillingAddressMutation, refetchCart]);
 
-        // Set shipping method (using standard shipping)
-        await setShippingMethodMutation({
-          variables: {
-            input: {
-              cart_id: data?.cart?.id,
-              shipping_methods: [
-                {
-                  carrier_code: 'standard',
-                  method_code: 'standard',
-                },
-              ],
-            },
-          },
-        });
+  const setShippingMethod = useCallback(async (methodId: string) => {
+    try {
+      await setShippingMethodMutation({
+        variables: { methodId },
+      });
+      await refetchCart();
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err : new Error('Failed to set shipping method'));
+      throw err;
+    }
+  }, [setShippingMethodMutation, refetchCart]);
 
-        // Set payment method
-        await setPaymentMethodMutation({
-          variables: {
-            input: {
-              cart_id: data?.cart?.id,
-              payment_method: {
-                code: 'stripe',
-                stripe: {
-                  payment_method_id: paymentMethod.id,
-                },
-              },
-            },
-          },
-        });
+  const setPaymentMethod = useCallback(async (methodId: string) => {
+    try {
+      await setPaymentMethodMutation({
+        variables: { methodId },
+      });
+      await refetchCart();
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err : new Error('Failed to set payment method'));
+      throw err;
+    }
+  }, [setPaymentMethodMutation, refetchCart]);
 
-        // Place order
-        const { data: orderData } = await placeOrderMutation({
-          variables: {
-            input: {
-              cart_id: data?.cart?.id,
-            },
-          },
-        });
-
-        await refetch();
-        setError(null);
-        return orderData.placeOrder.order;
-      } catch (err) {
-        setError(err as Error);
-        throw err;
-      }
-    },
-    [
-      data?.cart?.id,
-      setShippingAddressMutation,
-      setBillingAddressMutation,
-      setShippingMethodMutation,
-      setPaymentMethodMutation,
-      placeOrderMutation,
-      refetch,
-    ]
-  );
+  const placeOrder = useCallback(async () => {
+    try {
+      const { data } = await placeOrderMutation();
+      await refetchCart();
+      setError(null);
+      return {
+        id: data.placeOrder.id,
+        orderNumber: data.placeOrder.orderNumber,
+      };
+    } catch (err) {
+      setError(err instanceof Error ? err : new Error('Failed to place order'));
+      throw err;
+    }
+  }, [placeOrderMutation, refetchCart]);
 
   return (
     <CommerceContext.Provider
@@ -234,6 +210,10 @@ export const CommerceProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         addToCart,
         updateCartItem,
         removeFromCart,
+        setShippingAddress,
+        setBillingAddress,
+        setShippingMethod,
+        setPaymentMethod,
         placeOrder,
       }}
     >
@@ -249,3 +229,5 @@ export const useCommerce = () => {
   }
   return context;
 };
+
+export default CommerceContext;

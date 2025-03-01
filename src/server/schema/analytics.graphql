@@ -1,0 +1,48 @@
+type AnalyticsSettings {
+  id: Int!
+  enableGoogleAnalytics: Boolean!
+  googleAnalyticsId: String
+  enableHeatmaps: Boolean!
+  trackUserBehavior: Boolean!
+  anonymizeIp: Boolean!
+  enableEcommerce: Boolean!
+  enableConversionTracking: Boolean!
+  enableABTesting: Boolean!
+  maxConcurrentTests: Int!
+  trackingDomains: [String!]!
+  excludedPaths: [String!]!
+  customDimensions: [String!]!
+  conversionGoals: [String!]!
+  sampleRate: Int!
+  sessionTimeout: Int!
+  crossDomainTracking: Boolean!
+  userIdTracking: Boolean!
+}
+
+input AnalyticsSettingsInput {
+  enableGoogleAnalytics: Boolean
+  googleAnalyticsId: String
+  enableHeatmaps: Boolean
+  trackUserBehavior: Boolean
+  anonymizeIp: Boolean
+  enableEcommerce: Boolean
+  enableConversionTracking: Boolean
+  enableABTesting: Boolean
+  maxConcurrentTests: Int
+  trackingDomains: [String!]
+  excludedPaths: [String!]
+  customDimensions: [String!]
+  conversionGoals: [String!]
+  sampleRate: Int
+  sessionTimeout: Int
+  crossDomainTracking: Boolean
+  userIdTracking: Boolean
+}
+
+type Query {
+  analyticsSettings: AnalyticsSettings!
+}
+
+type Mutation {
+  updateAnalyticsSettings(input: AnalyticsSettingsInput!): AnalyticsSettings!
+}

@@ -6,15 +6,16 @@ interface CartSummaryProps {
   cart: Cart;
 }
 
-export const CartSummary: React.FC<CartSummaryProps> = ({ cart }) => {
+const CartSummary: React.FC<CartSummaryProps> = ({ cart }) => {
   const navigate = useNavigate();
   const { prices } = cart;
 
-  const hasDiscounts = prices.discounts && prices.discounts.length > 0;
+  const discounts = prices.discounts || [];
+  const hasDiscounts = discounts.length > 0;
   const subtotal = prices.subtotal_excluding_tax.value;
-  const total = prices.subtotal_including_tax.value;
+  const total = prices.total.value;
   const discountAmount = hasDiscounts
-    ? prices.discounts.reduce((sum, discount) => sum + discount.amount.value, 0)
+    ? discounts.reduce((sum, discount) => sum + discount.amount.value, 0)
     : 0;
 
   return (
@@ -40,18 +41,18 @@ export const CartSummary: React.FC<CartSummaryProps> = ({ cart }) => {
               <span>Discounts</span>
             </dt>
             <dd className="text-sm font-medium text-green-700">
-              -{prices.discounts[0].amount.currency} {Math.abs(discountAmount).toFixed(2)}
+              -{discounts[0].amount.currency} {Math.abs(discountAmount).toFixed(2)}
             </dd>
           </div>
         )}
 
         {/* Show individual discounts if there are any */}
         {hasDiscounts && (
-          <div className="space-y-1">
-            {prices.discounts.map((discount) => (
+          <div className="space-y-1 pl-4">
+            {discounts.map((discount) => (
               <div key={discount.label} className="flex items-center justify-between text-sm">
                 <dt className="text-gray-500">{discount.label}</dt>
-                <dd className="text-gray-500">
+                <dd className="text-green-700">
                   -{discount.amount.currency} {Math.abs(discount.amount.value).toFixed(2)}
                 </dd>
               </div>
@@ -59,10 +60,30 @@ export const CartSummary: React.FC<CartSummaryProps> = ({ cart }) => {
           </div>
         )}
 
+        {/* Shipping estimate if available */}
+        {prices.shipping_estimate && (
+          <div className="flex items-center justify-between border-t border-gray-200 pt-4">
+            <dt className="text-sm text-gray-600">Shipping estimate</dt>
+            <dd className="text-sm font-medium text-gray-900">
+              {prices.shipping_estimate.currency} {prices.shipping_estimate.value.toFixed(2)}
+            </dd>
+          </div>
+        )}
+
+        {/* Tax estimate if available */}
+        {prices.tax_estimate && (
+          <div className="flex items-center justify-between pt-2">
+            <dt className="text-sm text-gray-600">Tax estimate</dt>
+            <dd className="text-sm font-medium text-gray-900">
+              {prices.tax_estimate.currency} {prices.tax_estimate.value.toFixed(2)}
+            </dd>
+          </div>
+        )}
+
         <div className="flex items-center justify-between border-t border-gray-200 pt-4">
           <dt className="text-base font-medium text-gray-900">Order total</dt>
           <dd className="text-base font-medium text-gray-900">
-            {prices.subtotal_including_tax.currency} {total.toFixed(2)}
+            {prices.total.currency} {total.toFixed(2)}
           </dd>
         </div>
       </dl>
@@ -73,7 +94,7 @@ export const CartSummary: React.FC<CartSummaryProps> = ({ cart }) => {
           onClick={() => navigate('/checkout')}
           className="w-full rounded-md border border-transparent bg-primary-600 px-4 py-3 text-base font-medium text-white shadow-sm hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 focus:ring-offset-gray-50"
         >
-          Checkout
+          Proceed to Checkout
         </button>
       </div>
 
@@ -99,3 +120,5 @@ export const CartSummary: React.FC<CartSummaryProps> = ({ cart }) => {
     </section>
   );
 };
+
+export default CartSummary;

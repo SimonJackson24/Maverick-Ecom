@@ -1,0 +1,92 @@
+image: node:20-alpine
+
+stages:
+  - test
+  - build
+  - deploy
+
+variables:
+  DOCKER_DRIVER: overlay2
+  DOCKER_TLS_CERTDIR: ""
+
+cache:
+  paths:
+    - node_modules/
+    - .next/cache/
+
+# Test Stage
+test:
+  stage: test
+  script:
+    - npm ci
+    - npm run lint
+    - npm run test:coverage
+  coverage: '/All files[^|]*\|[^|]*\s+([\d\.]+)/'
+  artifacts:
+    reports:
+      coverage: coverage/clover.xml
+    expire_in: 1 week
+
+# Security Scan
+security_scan:
+  stage: test
+  script:
+    - npm audit
+    - npm run test:security
+  allow_failure: true
+
+# Build Stage
+build:
+  stage: build
+  script:
+    - docker build -t $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA .
+    - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
+  only:
+    - main
+    - production
+
+# Deploy to Production
+deploy_production:
+  stage: deploy
+  script:
+    - apk add --no-cache openssh-client
+    - eval $(ssh-agent -s)
+    - echo "$SSH_PRIVATE_KEY" | ssh-add -
+    - ssh -o StrictHostKeyChecking=no $PROD_SERVER "
+        docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY &&
+        docker pull $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA &&
+        docker-compose down &&
+        echo 'IMAGE_TAG=$CI_COMMIT_SHA' > .env &&
+        docker-compose up -d"
+  environment:
+    name: production
+    url: https://wickandwax.co
+  only:
+    - production
+  when: manual
+
+# Monitoring Jobs
+performance_test:
+  stage: test
+  script:
+    - npm run test:performance
+  only:
+    - main
+    - production
+  allow_failure: true
+
+accessibility_test:
+  stage: test
+  script:
+    - npm run test:a11y
+  only:
+    - main
+    - production
+  allow_failure: true
+
+# Cleanup
+cleanup:
+  stage: .post
+  script:
+    - docker system prune -f
+  when: always

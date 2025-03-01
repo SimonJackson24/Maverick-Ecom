@@ -1,0 +1,193 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model ChatMessage {
+  id          String      @id @default(uuid())
+  message_id  String      @unique
+  from        String
+  content     String
+  type        String      @default("customer")
+  status      String      @default("active")
+  timestamp   DateTime    @default(now())
+  metadata    Json?
+
+  @@map("chat_messages")
+}
+
+model MessageCleanup {
+  id                  String      @id @default(uuid())
+  message_id          String      @unique
+  group_message_id    String
+  customer_number     String
+  cleanup_scheduled_at DateTime
+  cleaned_at          DateTime?
+  status              String      @default("pending")
+  created_at          DateTime    @default(now())
+  updated_at          DateTime    @updatedAt
+
+  @@map("message_cleanups")
+}
+
+model SystemSettings {
+  id            String      @id @default(uuid())
+  key           String      @unique
+  value         Json
+  created_at    DateTime    @default(now())
+  updated_at    DateTime    @updatedAt
+
+  @@map("system_settings")
+}
+
+model SystemSettingsVersion {
+  id            Int      @id @default(1)
+  version       String
+  lastUpdated   DateTime
+  autoUpdate    Boolean  @default(false)
+  updateChannel String   @default("stable")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("system_settings_version")
+}
+
+model SupportTicket {
+  id            String      @id @default(uuid())
+  user_id       String?
+  email         String
+  subject       String
+  description   String
+  status        String      @default("open")
+  priority      String      @default("medium")
+  category      String      @default("other")
+  created_at    DateTime    @default(now())
+  updated_at    DateTime    @updatedAt
+  attachments   Json?
+  order_number  String?
+  whatsapp_number String?
+
+  updates       TicketUpdate[]
+
+  @@map("support_tickets")
+}
+
+model TicketUpdate {
+  id            String      @id @default(uuid())
+  ticket_id     String
+  message       String
+  created_at    DateTime    @default(now())
+  created_by    Json
+  attachments   Json?
+
+  ticket        SupportTicket @relation(fields: [ticket_id], references: [id])
+
+  @@map("ticket_updates")
+}
+
+model SeoMetrics {
+  id            String      @id @default(uuid())
+  page_url      String      @unique
+  title         String
+  description   String?
+  keywords      String[]
+  content_score Float       @default(0)
+  meta_score    Float       @default(0)
+  url_score     Float       @default(0)
+  overall_score Float       @default(0)
+  last_analyzed DateTime    @default(now())
+  issues        Json?
+  created_at    DateTime    @default(now())
+  updated_at    DateTime    @updatedAt
+
+  @@map("seo_metrics")
+}
+
+model KeywordPerformance {
+  id            String      @id @default(uuid())
+  keyword       String      @unique
+  position      Int
+  previous_position Int
+  volume        Int         @default(0)
+  difficulty    Float       @default(0)
+  relevance     Float       @default(0)
+  last_checked  DateTime    @default(now())
+  created_at    DateTime    @default(now())
+  updated_at    DateTime    @updatedAt
+
+  @@map("keyword_performance")
+}
+
+model UrlManagement {
+  id            String      @id @default(uuid())
+  current_url   String      @unique
+  target_url    String
+  type          String      // redirect, canonical, alternate
+  status        Int         @default(200)
+  last_checked  DateTime    @default(now())
+  created_at    DateTime    @default(now())
+  updated_at    DateTime    @updatedAt
+
+  @@map("url_management")
+}
+
+model ContentHealth {
+  id              String      @id @default(uuid())
+  url             String      @unique
+  title           String
+  word_count      Int
+  readability_score Float
+  keyword_density Json
+  issues          Json?
+  created_at      DateTime    @default(now())
+  updated_at      DateTime    @updatedAt
+
+  @@map("content_health")
+}
+
+model AnalyticsSettings {
+  id                   Int      @id @default(autoincrement())
+  enableGoogleAnalytics Boolean  @default(false)
+  googleAnalyticsId    String?
+  trackUserBehavior    Boolean  @default(false)
+  anonymizeIp          Boolean  @default(true)
+  enableEcommerce      Boolean  @default(false)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+}
+
+model SetupState {
+  id                Int      @id @default(1)
+  isSetupComplete   Boolean  @default(false)
+  currentStep       String   @default("welcome")
+  storeInitialized  Boolean  @default(false)
+  adminCreated      Boolean  @default(false)
+  setupCompletedAt  DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("setup_state")
+}
+
+model StoreSettings {
+  id                Int      @id @default(1)
+  storeName         String
+  storeDescription  String?
+  contactEmail      String
+  contactPhone      String?
+  currency          String   @default("USD")
+  timezone          String   @default("UTC")
+  country           String
+  address           String?
+  city              String?
+  state             String?
+  postalCode        String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("store_settings")
+}

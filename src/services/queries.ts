@@ -1,7 +1,7 @@
 import { gql } from '@apollo/client';
 
-export const PRODUCT_FRAGMENT = gql`
-  fragment ProductFields on ProductInterface {
+export const PRODUCT_INTERFACE_FIELDS = gql`
+  fragment ProductInterfaceFields on ProductInterface {
     id
     sku
     name
@@ -63,7 +63,7 @@ export const GET_PRODUCTS = gql`
       sort: $sort
     ) {
       items {
-        ...ProductFields
+        ...ProductInterfaceFields
       }
       total_count
       page_info {
@@ -73,18 +73,18 @@ export const GET_PRODUCTS = gql`
       }
     }
   }
-  ${PRODUCT_FRAGMENT}
+  ${PRODUCT_INTERFACE_FIELDS}
 `;
 
 export const GET_PRODUCT_BY_URL_KEY = gql`
   query GetProductByUrlKey($urlKey: String!) {
     products(filter: { url_key: { eq: $urlKey } }) {
       items {
-        ...ProductFields
+        ...ProductInterfaceFields
       }
     }
   }
-  ${PRODUCT_FRAGMENT}
+  ${PRODUCT_INTERFACE_FIELDS}
 `;
 
 export const GET_CATEGORIES = gql`
@@ -118,7 +118,7 @@ export const GET_CATEGORY = gql`
       image
       products(pageSize: 12, currentPage: 1) {
         items {
-          ...ProductFields
+          ...ProductInterfaceFields
         }
         total_count
         page_info {
@@ -129,7 +129,7 @@ export const GET_CATEGORY = gql`
       }
     }
   }
-  ${PRODUCT_FRAGMENT}
+  ${PRODUCT_INTERFACE_FIELDS}
 `;
 
 export const CREATE_CART = gql`
@@ -145,7 +145,7 @@ export const GET_CART = gql`
       items {
         id
         product {
-          ...ProductFields
+          ...ProductInterfaceFields
         }
         quantity
       }
@@ -168,7 +168,7 @@ export const GET_CART = gql`
       }
     }
   }
-  ${PRODUCT_FRAGMENT}
+  ${PRODUCT_INTERFACE_FIELDS}
 `;
 
 export const ADD_TO_CART = gql`
@@ -184,14 +184,14 @@ export const ADD_TO_CART = gql`
         items {
           id
           product {
-            ...ProductFields
+            ...ProductInterfaceFields
           }
           quantity
         }
       }
     }
   }
-  ${PRODUCT_FRAGMENT}
+  ${PRODUCT_INTERFACE_FIELDS}
 `;
 
 export const UPDATE_CART_ITEM = gql`
@@ -207,14 +207,14 @@ export const UPDATE_CART_ITEM = gql`
         items {
           id
           product {
-            ...ProductFields
+            ...ProductInterfaceFields
           }
           quantity
         }
       }
     }
   }
-  ${PRODUCT_FRAGMENT}
+  ${PRODUCT_INTERFACE_FIELDS}
 `;
 
 export const REMOVE_FROM_CART = gql`
@@ -227,14 +227,14 @@ export const REMOVE_FROM_CART = gql`
         items {
           id
           product {
-            ...ProductFields
+            ...ProductInterfaceFields
           }
           quantity
         }
       }
     }
   }
-  ${PRODUCT_FRAGMENT}
+  ${PRODUCT_INTERFACE_FIELDS}
 `;
 
 export const CREATE_CUSTOMER = gql`
@@ -305,7 +305,7 @@ export const SEARCH_PRODUCTS = gql`
       currentPage: $currentPage
     ) {
       items {
-        ...ProductFields
+        ...ProductInterfaceFields
       }
       total_count
       page_info {
@@ -315,5 +315,27 @@ export const SEARCH_PRODUCTS = gql`
       }
     }
   }
-  ${PRODUCT_FRAGMENT}
+  ${PRODUCT_INTERFACE_FIELDS}
+`;
+
+export const GET_PRODUCTS_BY_CATEGORY = gql`
+  query GetProductsByCategory($categoryId: String!) {
+    category(id: $categoryId) {
+      id
+      name
+      description
+      products(pageSize: 24, currentPage: 1) {
+        items {
+          ...ProductInterfaceFields
+        }
+        total_count
+        page_info {
+          total_pages
+          current_page
+          page_size
+        }
+      }
+    }
+  }
+  ${PRODUCT_INTERFACE_FIELDS}
 `;

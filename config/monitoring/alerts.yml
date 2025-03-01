@@ -1,0 +1,108 @@
+alerts:
+  # System Alerts
+  - name: high_cpu_usage
+    query: avg:system.cpu.user{*} > 80
+    type: metric alert
+    warning_threshold: 70
+    critical_threshold: 80
+    notify:
+      - ops_team
+      - slack_alerts
+
+  - name: high_memory_usage
+    query: avg:system.mem.used{*} / avg:system.mem.total{*} * 100 > 85
+    type: metric alert
+    warning_threshold: 75
+    critical_threshold: 85
+    notify:
+      - ops_team
+      - slack_alerts
+
+  - name: disk_space_low
+    query: avg:system.disk.in_use{*} > 90
+    type: metric alert
+    warning_threshold: 80
+    critical_threshold: 90
+    notify:
+      - ops_team
+      - slack_alerts
+
+  # Application Alerts
+  - name: high_error_rate
+    query: sum:app.errors{*}.as_rate() > 0.1
+    type: metric alert
+    warning_threshold: 0.05
+    critical_threshold: 0.1
+    notify:
+      - dev_team
+      - slack_alerts
+
+  - name: api_latency_high
+    query: avg:api.response.time{*} > 2000
+    type: metric alert
+    warning_threshold: 1000
+    critical_threshold: 2000
+    notify:
+      - dev_team
+      - slack_alerts
+
+  - name: payment_failure_rate
+    query: sum:payment.failures{*}.as_rate() > 0.05
+    type: metric alert
+    warning_threshold: 0.02
+    critical_threshold: 0.05
+    notify:
+      - dev_team
+      - payment_team
+      - slack_alerts
+
+  # Business Alerts
+  - name: order_volume_drop
+    query: avg:orders.count{*}.as_rate() < ${avg:orders.count{*}.as_rate().rollup('hour', 'avg').shift('1d')} * 0.5
+    type: metric alert
+    notify:
+      - business_team
+      - slack_alerts
+
+  - name: abandoned_cart_spike
+    query: sum:cart.abandoned{*}.as_rate() > ${sum:cart.abandoned{*}.as_rate().rollup('hour', 'avg').shift('1d')} * 2
+    type: metric alert
+    notify:
+      - marketing_team
+      - slack_alerts
+
+  # Security Alerts
+  - name: failed_login_attempts
+    query: sum:auth.login.failed{*}.as_count() > 100
+    type: metric alert
+    warning_threshold: 50
+    critical_threshold: 100
+    notify:
+      - security_team
+      - slack_alerts
+
+  - name: api_rate_limit_exceeded
+    query: sum:api.rate_limit.exceeded{*}.as_count() > 1000
+    type: metric alert
+    notify:
+      - security_team
+      - dev_team
+      - slack_alerts
+
+notifications:
+  slack_channels:
+    ops_team: "#ops-alerts"
+    dev_team: "#dev-alerts"
+    security_team: "#security-alerts"
+    business_team: "#business-alerts"
+    payment_team: "#payment-alerts"
+    marketing_team: "#marketing-alerts"
+    slack_alerts: "#general-alerts"
+
+  email_groups:
+    ops_team: "ops@wickandwax.co"
+    dev_team: "dev@wickandwax.co"
+    security_team: "security@wickandwax.co"
+    business_team: "business@wickandwax.co"
+    payment_team: "payments@wickandwax.co"
+    marketing_team: "marketing@wickandwax.co"

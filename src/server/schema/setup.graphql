@@ -1,0 +1,69 @@
+type SetupState {
+  id: Int!
+  isSetupComplete: Boolean!
+  currentStep: String!
+  storeInitialized: Boolean!
+  adminCreated: Boolean!
+  setupCompletedAt: DateTime
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type StoreSettings {
+  id: Int!
+  storeName: String!
+  storeDescription: String
+  contactEmail: String!
+  contactPhone: String
+  currency: String!
+  timezone: String!
+  country: String!
+  address: String
+  city: String
+  state: String
+  postalCode: String
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+input CreateStoreSettingsInput {
+  storeName: String!
+  storeDescription: String
+  contactEmail: String!
+  contactPhone: String
+  currency: String!
+  timezone: String!
+  country: String!
+  address: String
+  city: String
+  state: String
+  postalCode: String
+}
+
+input UpdateSetupStateInput {
+  currentStep: String
+  isSetupComplete: Boolean
+  storeInitialized: Boolean
+  adminCreated: Boolean
+  setupCompletedAt: DateTime
+}
+
+input CreateAdminUserInput {
+  email: String!
+  password: String!
+  firstName: String!
+  lastName: String!
+}
+
+type Query {
+  setupState: SetupState!
+  storeSettings: StoreSettings
+  testDatabaseConnection: Boolean!
+}
+
+type Mutation {
+  updateSetupState(input: UpdateSetupStateInput!): SetupState!
+  createStoreSettings(input: CreateStoreSettingsInput!): StoreSettings!
+  createAdminUser(input: CreateAdminUserInput!): User!
+  runDatabaseMigrations: Boolean!
+}

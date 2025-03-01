@@ -62,7 +62,7 @@ const sections = [
     content: `We use cookies and similar tracking technologies to improve your browsing experience, analyze site traffic, and understand where our visitors come from. You can control cookies through your browser settings.`,
   },
   {
-    title: 'Children's Privacy',
+    title: `Children's Privacy`,
     content: `Our website is not intended for children under 13 years of age. We do not knowingly collect personal information from children under 13.`,
   },
   {

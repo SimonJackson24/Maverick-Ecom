@@ -5,14 +5,27 @@ import { Helmet } from 'react-helmet-async';
 import { GET_PRODUCT_BY_URL_KEY } from '../services/queries';
 import { ProductGallery } from '../components/products/ProductGallery';
 import { ProductInfo } from '../components/products/ProductInfo';
-import type { Product } from '../types/commerce';
+import { Product } from '../types/commerce';
+import { ApiResponse } from '../types/api';
+import { monitoring } from '../services/monitoring/MonitoringService';
+
+interface ProductQueryResponse {
+  product: Product;
+}
 
 export const ProductDetailPage: React.FC = () => {
   const { urlKey } = useParams<{ urlKey: string }>();
   
-  const { loading, error, data } = useQuery(GET_PRODUCT_BY_URL_KEY, {
+  const { loading, error, data } = useQuery<ApiResponse<ProductQueryResponse>>(GET_PRODUCT_BY_URL_KEY, {
     variables: { urlKey },
     skip: !urlKey,
+    onError: (error) => {
+      monitoring.logError('product_query_error', {
+        message: error.message,
+        componentName: 'ProductDetailPage',
+        additionalContext: { urlKey }
+      });
+    }
   });
 
   if (loading) {
@@ -41,62 +54,43 @@ export const ProductDetailPage: React.FC = () => {
     );
   }
 
-  if (error) {
+  if (error || !data?.data) {
     return (
       <div className="mx-auto max-w-2xl px-4 py-16 sm:px-6 sm:py-24 lg:max-w-7xl lg:px-8">
         <div className="text-center">
-          <h2 className="text-base font-semibold text-primary-600">404</h2>
-          <p className="mt-1 text-4xl font-bold tracking-tight text-gray-900 sm:text-5xl lg:text-6xl">
-            Product not found
-          </p>
-          <p className="mt-6 text-base leading-7 text-gray-600">
-            Sorry, we couldn't find the product you're looking for.
+          <h1 className="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">
+            Product Not Found
+          </h1>
+          <p className="mt-4 text-base text-gray-500">
+            The product you're looking for could not be found or is no longer available.
           </p>
         </div>
       </div>
     );
   }
 
-  const product: Product = data?.products?.items[0];
-
-  if (!product) {
-    return (
-      <div className="mx-auto max-w-2xl px-4 py-16 sm:px-6 sm:py-24 lg:max-w-7xl lg:px-8">
-        <div className="text-center">
-          <h2 className="text-base font-semibold text-primary-600">404</h2>
-          <p className="mt-1 text-4xl font-bold tracking-tight text-gray-900 sm:text-5xl lg:text-6xl">
-            Product not found
-          </p>
-          <p className="mt-6 text-base leading-7 text-gray-600">
-            Sorry, we couldn't find the product you're looking for.
-          </p>
-        </div>
-      </div>
-    );
-  }
+  const { product } = data.data;
 
   return (
     <>
       <Helmet>
-        <title>{`${product.name} | The Wick & Wax Co`}</title>
-        <meta name="description" content={product.meta_description || product.description.html.replace(/<[^>]*>/g, '').slice(0, 160)} />
-        <meta property="og:title" content={`${product.name} | The Wick & Wax Co`} />
-        <meta property="og:description" content={product.meta_description || product.description.html.replace(/<[^>]*>/g, '').slice(0, 160)} />
-        <meta property="og:image" content={product.image.url} />
-        <meta property="og:type" content="product" />
-        <meta property="product:price:amount" content={product.price.regularPrice.amount.value.toString()} />
-        <meta property="product:price:currency" content={product.price.regularPrice.amount.currency} />
+        <title>{`${product.name} | Wick & Wax Co.`}</title>
+        <meta name="description" content={product.meta_description || product.description.html.substring(0, 155)} />
       </Helmet>
 
       <div className="mx-auto max-w-2xl px-4 py-16 sm:px-6 sm:py-24 lg:max-w-7xl lg:px-8">
         <div className="lg:grid lg:grid-cols-2 lg:items-start lg:gap-x-8">
-          {/* Product gallery */}
-          <ProductGallery images={[product.image, ...product.media_gallery]} />
-
-          {/* Product info */}
+          <ProductGallery 
+            images={product.media_gallery.map((image, index) => ({
+              ...image,
+              position: index
+            }))} 
+          />
           <ProductInfo product={product} />
         </div>
       </div>
     </>
   );
 };
+
+export default ProductDetailPage;

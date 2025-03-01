@@ -112,6 +112,26 @@ export const Footer: React.FC = () => {
                   ))}
                 </ul>
               </div>
+              <div className="space-y-4">
+                <h3 className="text-sm font-semibold text-gray-400 tracking-wider uppercase">Legal</h3>
+                <ul className="space-y-4">
+                  <li>
+                    <Link to="/privacy-policy" className="text-base text-gray-300 hover:text-white">
+                      Privacy Policy
+                    </Link>
+                  </li>
+                  <li>
+                    <Link to="/gdpr-rights" className="text-base text-gray-300 hover:text-white">
+                      Your Privacy Rights (GDPR)
+                    </Link>
+                  </li>
+                  <li>
+                    <Link to="/terms" className="text-base text-gray-300 hover:text-white">
+                      Terms of Service
+                    </Link>
+                  </li>
+                </ul>
+              </div>
             </div>
           </div>
         </div>
@@ -124,3 +144,5 @@ export const Footer: React.FC = () => {
     </footer>
   );
 };
+
+export default Footer;

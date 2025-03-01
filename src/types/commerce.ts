@@ -8,6 +8,22 @@ export interface Image {
   label: string;
 }
 
+export interface ScentProfile {
+  primary_scent: string;
+  scent_family: string;
+  scent_notes: string[];
+  intensity: 'light' | 'medium' | 'strong';
+}
+
+export interface RelatedProducts {
+  items: Product[];
+}
+
+export interface CustomAttribute {
+  attribute_code: string;
+  value: string | number | boolean | string[];
+}
+
 export interface Product {
   id: string;
   sku: string;
@@ -15,45 +31,71 @@ export interface Product {
   url_key: string;
   price: {
     regularPrice: {
-      amount: Price;
+      amount: {
+        value: number;
+        currency: string;
+      };
     };
     minimalPrice?: {
-      amount: Price;
+      amount: {
+        value: number;
+        currency: string;
+      };
     };
+  };
+  image: {
+    url: string;
+    label: string;
   };
   description: {
     html: string;
   };
   meta_description?: string;
-  image: Image;
   media_gallery: Image[];
   eco_friendly_features?: string[];
   sustainable_materials?: string[];
-  stock_status: 'IN_STOCK' | 'OUT_OF_STOCK';
+  stock_status: 'IN_STOCK' | 'OUT_OF_STOCK' | 'PREORDER';
   categories: Array<{
     id: string;
     name: string;
     url_path: string;
   }>;
+  rating_summary?: number;
+  review_count?: number;
+  scent_profile?: ScentProfile;
+  custom_attributes?: Record<string, string | number | boolean | string[]>;
+  related_products?: RelatedProducts;
+}
+
+export interface CartItemPrices {
+  row_total: Price;
+  row_total_including_tax: Price;
+  total_item_discount?: Price;
 }
 
 export interface CartItem {
   id: string;
   quantity: number;
   product: Product;
+  prices: CartItemPrices;
+}
+
+export interface CartPrices {
+  subtotal_excluding_tax: Price;
+  subtotal_including_tax: Price;
+  shipping_estimate?: Price;
+  tax_estimate?: Price;
+  discounts?: Array<{
+    amount: Price;
+    label: string;
+  }>;
+  total: Price;
 }
 
 export interface Cart {
   id: string;
   items: CartItem[];
-  prices: {
-    subtotal_excluding_tax: Price;
-    subtotal_including_tax: Price;
-    discounts?: Array<{
-      amount: Price;
-      label: string;
-    }>;
-  };
+  prices: CartPrices;
 }
 
 export interface ShippingAddress {
@@ -70,12 +112,16 @@ export interface ShippingAddress {
 }
 
 export interface PaymentMethod {
-  id: string;
-  cardNumber: string;
-  expiryMonth: string;
-  expiryYear: string;
-  cvv: string;
-  nameOnCard: string;
+  code: string;
+  title: string;
+}
+
+export interface ShippingMethod {
+  carrier_code: string;
+  carrier_title: string;
+  method_code: string;
+  method_title: string;
+  amount: Price;
 }
 
 export interface Order {
@@ -84,17 +130,8 @@ export interface Order {
   items: CartItem[];
   shipping_address: ShippingAddress;
   billing_address: ShippingAddress;
-  payment_method: {
-    code: string;
-    title: string;
-  };
-  shipping_method: {
-    carrier_code: string;
-    carrier_title: string;
-    method_code: string;
-    method_title: string;
-    amount: Price;
-  };
+  payment_method: PaymentMethod;
+  shipping_method: ShippingMethod;
   prices: {
     subtotal: Price;
     shipping: Price;
@@ -149,4 +186,5 @@ export interface Customer {
   firstname: string;
   lastname: string;
   addresses: CustomerAddress[];
+  orders?: Order[];
 }
