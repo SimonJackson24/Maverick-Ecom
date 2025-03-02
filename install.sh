@@ -189,7 +189,8 @@ EOL
     
     # Build the project
     echo "Building the project..."
-    npm run build
+    npm run build:server
+    npm run build:client
     
     # Create PM2 startup script
     echo "Creating PM2 startup script..."
