@@ -184,13 +184,16 @@ EOL
     
     # Install project dependencies including PM2 locally
     echo "Installing project dependencies..."
+    export NODE_ENV=production
     npm install --no-optional
     npm install pm2 typescript ts-node --save-dev
     
     # Build the project
     echo "Building the project..."
-    npm run build:server
-    npm run build:client
+    echo "Building server..."
+    NODE_ENV=production npm run build:server
+    echo "Building client..."
+    NODE_ENV=production npm run build:client
     
     # Create PM2 startup script
     echo "Creating PM2 startup script..."

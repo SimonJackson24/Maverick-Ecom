@@ -13,10 +13,10 @@ import {
   GridToolbar,
   GridSelectionModel,
 } from '@mui/x-data-grid';
-import { Edit, Delete, Add } from '@mui/icons-material';
+import { Edit as EditIcon, Delete as DeleteIcon, Add } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { ProductService } from '../../services/ProductService';
-import { Product, ProductStatus, StockStatus } from '../../types/Product';
+import { Product, ProductStatus, StockStatus } from '@/types/Product';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import { useSnackbar } from 'notistack';
 import PageLayout from '../../components/layout/PageLayout';
@@ -135,7 +135,7 @@ const ProductListPage: React.FC = () => {
               size="small"
               onClick={() => handleEditProduct(params.row.id)}
             >
-              <Edit />
+              <EditIcon />
             </IconButton>
           </Tooltip>
           <Tooltip title="Delete">
@@ -144,7 +144,7 @@ const ProductListPage: React.FC = () => {
               onClick={() => handleDeleteClick(params.row)}
               color="error"
             >
-              <Delete />
+              <DeleteIcon />
             </IconButton>
           </Tooltip>
         </Box>

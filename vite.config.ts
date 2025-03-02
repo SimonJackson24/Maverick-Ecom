@@ -19,69 +19,36 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
       '@admin': path.resolve(__dirname, './src/admin'),
       '@components': path.resolve(__dirname, './src/components'),
-      '@utils': path.resolve(__dirname, './src/utils'),
       '@types': path.resolve(__dirname, './src/types'),
-    },
+    }
+  },
+  define: {
+    'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'production')
+  },
+  build: {
+    outDir: 'dist/client',
+    emptyOutDir: true,
+    sourcemap: true,
+    rollupOptions: {
+      input: {
+        main: path.resolve(__dirname, 'index.html'),
+      },
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom', '@mui/material', '@emotion/react', '@emotion/styled'],
+          admin: ['@admin'],
+        }
+      }
+    }
   },
   server: {
     port: 3000,
-    host: '0.0.0.0',
-    cors: true,
-    headers: {
-      'Access-Control-Allow-Origin': '*',
-    },
     proxy: {
-      '/graphql': {
-        target: 'http://localhost:4000',
-        changeOrigin: true,
-        secure: false,
-        rewrite: (path) => path
-      },
       '/api': {
         target: 'http://localhost:4000',
         changeOrigin: true,
         secure: false,
-        rewrite: (path) => path.replace(/^\/api/, ''),
-      },
-    },
-    hmr: {
-      overlay: true,
-    },
-  },
-  envPrefix: ['VITE_'],
-  build: {
-    outDir: 'dist/client',
-    sourcemap: true,
-    rollupOptions: {
-      output: {
-        manualChunks: (id) => {
-          if (id.includes('node_modules')) {
-            if (id.includes('@mui/')) {
-              return 'vendor-mui';
-            }
-            if (id.includes('react')) {
-              return 'vendor-react';
-            }
-            if (id.includes('@apollo')) {
-              return 'vendor-apollo';
-            }
-            return 'vendor';
-          }
-        },
-      },
-    },
-  },
-  optimizeDeps: {
-    include: [
-      'react',
-      'react-dom',
-      '@emotion/react',
-      '@emotion/styled',
-      '@mui/material',
-      '@mui/icons-material',
-      '@apollo/client',
-      'graphql',
-      'react-router-dom',
-    ],
-  },
+      }
+    }
+  }
 });
