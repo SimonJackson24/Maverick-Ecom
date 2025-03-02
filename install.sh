@@ -90,7 +90,9 @@ install_dependencies() {
     
     # First install dev dependencies needed for build
     echo "Installing build dependencies..."
-    npm install --save-dev typescript ts-node vite @vitejs/plugin-react pm2
+    npm install --save-dev typescript ts-node vite @vitejs/plugin-react pm2 \
+      @types/node @types/express @types/cors @types/compression @types/swagger-jsdoc \
+      @types/express-session @types/mongoose @types/jest @types/compression
     
     # Then install production dependencies
     echo "Installing production dependencies..."
@@ -102,10 +104,10 @@ install_dependencies() {
     # Build the project
     echo "Building the project..."
     echo "Building server..."
-    ./node_modules/.bin/tsc -p tsconfig.server.json --skipLibCheck
+    NODE_OPTIONS=--max-old-space-size=4096 ./node_modules/.bin/tsc -p tsconfig.server.json --skipLibCheck
     
     echo "Building client..."
-    ./node_modules/.bin/vite build
+    NODE_OPTIONS=--max-old-space-size=4096 ./node_modules/.bin/vite build
     
     # Create PM2 startup script
     echo "Creating PM2 startup script..."
