@@ -17,10 +17,11 @@
     "noUnusedParameters": true,
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
+    "types": ["node"],
     "paths": {
       "@/*": ["./src/*"]
     }
   },
-  "include": ["src/server/**/*", "src/graphql/**/*"],
-  "exclude": ["node_modules", "dist"]
+  "include": ["src/server/**/*"],
+  "exclude": ["src/**/*.test.*", "src/**/*.spec.*", "src/client/**/*", "node_modules", "dist"]
 }

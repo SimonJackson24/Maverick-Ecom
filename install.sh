@@ -75,87 +75,6 @@ setup_nodejs() {
     fi
 }
 
-# Function to detect Hestia database credentials
-detect_hestia_credentials() {
-    echo "Detecting Hestia database credentials..."
-    
-    # Try to find the database configuration file
-    DB_CONF_FILE="$HOME/conf/web/$USER/pgsql.conf"
-    if [ -f "$DB_CONF_FILE" ]; then
-        DB_USER=$(grep "DB_USER" "$DB_CONF_FILE" | cut -d"'" -f2)
-        DB_PASSWORD=$(grep "DB_PASSWORD" "$DB_CONF_FILE" | cut -d"'" -f2)
-        DB_NAME=$(grep "DB_NAME" "$DB_CONF_FILE" | cut -d"'" -f2)
-        
-        if [ -n "$DB_USER" ] && [ -n "$DB_PASSWORD" ] && [ -n "$DB_NAME" ]; then
-            echo -e "${GREEN}Found database credentials in Hestia configuration${NC}"
-            DATABASE_URL="postgresql://$DB_USER:$DB_PASSWORD@localhost:5432/$DB_NAME"
-            echo "DATABASE_URL=$DATABASE_URL" >> .env
-            return 0
-        fi
-    fi
-    
-    echo -e "${RED}Could not automatically detect Hestia database credentials${NC}"
-    return 1
-}
-
-# Function to check requirements
-check_requirements() {
-    echo "Checking system requirements..."
-    
-    # Check if running in PuTTY/SSH
-    if [ -n "$SSH_CLIENT" ] || [ -n "$SSH_TTY" ]; then
-        echo "Running in SSH/PuTTY environment..."
-        export TERM=xterm-256color
-    fi
-
-    # Setup Node.js environment
-    setup_nodejs
-
-    # Check port 4001 using alternative methods
-    echo "Checking port 4001..."
-    if command_exists lsof; then
-        if lsof -i :4001; then
-            echo -e "${RED}Port 4001 is already in use${NC}"
-            exit 1
-        fi
-    elif command_exists ss; then
-        if ss -ln | grep :4001; then
-            echo -e "${RED}Port 4001 is already in use${NC}"
-            exit 1
-        fi
-    fi
-}
-
-# Function to setup environment
-setup_environment() {
-    echo "Setting up environment..."
-
-    # Create necessary directories with proper permissions
-    mkdir -p logs/pm2 public/uploads backups
-    chmod 755 logs public/uploads backups
-
-    # Create .env file if it doesn't exist
-    if [ ! -f .env ]; then
-        echo "Creating .env file..."
-        cp .env.example .env
-        
-        # Generate random secrets
-        JWT_SECRET=$(openssl rand -base64 32)
-        SESSION_SECRET=$(openssl rand -base64 32)
-        COOKIE_SECRET=$(openssl rand -base64 32)
-        
-        # Update .env with secure secrets
-        sed -i "s/JWT_SECRET=.*/JWT_SECRET=$JWT_SECRET/" .env
-        sed -i "s/SESSION_SECRET=.*/SESSION_SECRET=$SESSION_SECRET/" .env
-        sed -i "s/COOKIE_SECRET=.*/COOKIE_SECRET=$COOKIE_SECRET/" .env
-        
-        # Try to detect and set Hestia database credentials
-        detect_hestia_credentials
-        
-        echo -e "${GREEN}Created and configured .env file${NC}"
-    fi
-}
-
 # Function to install dependencies
 install_dependencies() {
     echo "Installing dependencies..."
@@ -165,35 +84,28 @@ install_dependencies() {
     export NPM_CONFIG_PREFIX="$HOME/.local"
     export NPM_CONFIG_CACHE="$HOME/.npm"
     
-    # Create package.json if it doesn't exist
-    if [ ! -f "package.json" ]; then
-        echo "Creating package.json..."
-        cat > package.json << 'EOL'
-{
-  "name": "wick-and-wax",
-  "version": "1.0.0",
-  "private": true,
-  "scripts": {
-    "start": "node server.js",
-    "dev": "nodemon server.js",
-    "build": "tsc"
-  }
-}
-EOL
-    fi
-    
     # Install project dependencies including PM2 locally
-    echo "Installing project dependencies..."
+    echo "Installing dependencies..."
     export NODE_ENV=production
-    npm install --no-optional
-    npm install pm2 typescript ts-node --save-dev
+    
+    # First install dev dependencies needed for build
+    echo "Installing build dependencies..."
+    npm install --save-dev typescript ts-node vite @vitejs/plugin-react pm2
+    
+    # Then install production dependencies
+    echo "Installing production dependencies..."
+    npm install --production --no-optional
+    
+    # Remove husky for production
+    npm uninstall husky
     
     # Build the project
     echo "Building the project..."
     echo "Building server..."
-    NODE_ENV=production npm run build:server
+    ./node_modules/.bin/tsc -p tsconfig.server.json --skipLibCheck
+    
     echo "Building client..."
-    NODE_ENV=production npm run build:client
+    ./node_modules/.bin/vite build
     
     # Create PM2 startup script
     echo "Creating PM2 startup script..."
@@ -202,7 +114,7 @@ EOL
 export PATH="$HOME/.local/bin:$PATH"
 export NPM_CONFIG_PREFIX="$HOME/.local"
 export NPM_CONFIG_CACHE="$HOME/.npm"
-NODE_ENV=production ./node_modules/.bin/pm2 start ecosystem.config.cjs --env production
+./node_modules/.bin/pm2 start ecosystem.config.cjs --env production
 EOL
     chmod +x start.sh
     
@@ -219,35 +131,49 @@ EOL
 }
 
 # Main installation process
-echo -e "${BLUE}=== Wick & Wax Co Installation Script ===${NC}\n"
+echo "=== Wick & Wax Co Installation Script ==="
+echo ""
 
-# Run installation steps
-check_requirements
-setup_environment
+# Check if running in SSH
+if [ -n "$SSH_CLIENT" ] || [ -n "$SSH_TTY" ]; then
+    echo "Running in SSH/PuTTY environment..."
+else
+    echo "Warning: Not running in SSH environment"
+fi
+
+# Setup Node.js
+setup_nodejs
+
+# Check port 4001
+echo "Checking port 4001..."
+if ! command_exists lsof; then
+    echo "Warning: lsof not available, skipping port check"
+else
+    if lsof -i:4001 > /dev/null; then
+        echo -e "${RED}Port 4001 is already in use${NC}"
+        exit 1
+    fi
+fi
+
+# Set up environment
+echo "Setting up environment..."
 install_dependencies
 
-echo -e "\n${GREEN}Installation completed!${NC}"
-echo -e "${BLUE}Starting application...${NC}"
-
-# Start application with local PM2
+echo ""
+echo "Installation completed!"
+echo "Starting application..."
 ./start.sh
 
-echo -e "\n${GREEN}Application is now running!${NC}"
-echo -e "${BLUE}Next steps:${NC}"
+echo ""
+echo "Application is now running!"
+echo "Next steps:"
 echo "1. Set up your domain in Hestia Control Panel"
 echo "2. Configure SSL certificate (if not already done)"
 echo "3. Visit https://your-domain/setup to complete the setup wizard"
 echo "4. Monitor the application using: ./pm2.sh monit"
-
-# Create a helpful alias for quick management
-if [ -f "$HOME/.bashrc" ]; then
-    if ! grep -q "alias wickwax=" "$HOME/.bashrc"; then
-        echo "alias wickwax='./pm2.sh monit'" >> "$HOME/.bashrc"
-    fi
-fi
-
-echo -e "\n${GREEN}Installation complete! Your store is ready to go!${NC}"
-echo -e "${BLUE}To manage your application, use:${NC}"
+echo ""
+echo "Installation complete! Your store is ready to go!"
+echo "To manage your application, use:"
 echo "- Start: ./start.sh"
 echo "- Monitor: ./pm2.sh monit"
 echo "- Stop: ./pm2.sh stop all"
